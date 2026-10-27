@@ -4,7 +4,6 @@ import { fetchFacilitiesFromOsm, OVERPASS_KINDS } from "@/lib/overpass";
 import {
   bundledFacilities,
   cachedFacilities,
-  facilityCacheIsThin,
   storeFacilities,
 } from "@/lib/repo";
 import type { Facility } from "@/lib/types";
@@ -35,8 +34,8 @@ function dedupe(facilities: Facility[]): Facility[] {
 
 /**
  * Nearby hospitals, police stations, toilets, food and transport.
- * Order of preference: Neon cache → live OpenStreetMap (Overpass) → bundled
- * seed list, so the Help & Map screens keep working even when OSM is rate limiting.
+ * Instant response from Neon cache + verified local seed list; never blocks
+ * waiting on slow external Overpass mirrors when local data is already present.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -49,7 +48,7 @@ export async function GET(request: Request) {
     rawLat <= 28 &&
     rawLng >= 85 &&
     rawLng <= 91;
-  // Always center facility search in Naihati if caller is outside West Bengal
+
   const lat = inBengal ? rawLat : 22.8929;
   const lng = inBengal ? rawLng : 88.422;
   const radius = Math.min(Math.max(Number(url.searchParams.get("radius") ?? 3500), 300), 6000);
@@ -86,26 +85,21 @@ export async function GET(request: Request) {
 
   const cached = await cachedFacilities(lat, lng, radius, networkKinds);
   if (cached.length > 0) {
-    facilities = cached;
+    facilities = dedupe([...cached, ...seedInRange]);
     source = "cache";
-  }
-
-  if (networkKinds.length > 0 && facilityCacheIsThin(cached)) {
-    const live = await fetchFacilitiesFromOsm(lat, lng, radius, networkKinds);
-    if (live.length > 0) {
-      facilities = dedupe([...live, ...cached]);
-      source = "osm";
-      void storeFacilities(live);
-    }
-  }
-
-  if (facilities.length === 0) {
-    facilities = seedInRange.length > 0
-      ? seedInRange
-      : bundledFacilities().filter((facility) => requested.includes(facility.kind));
-    source = "seed";
   } else if (seedInRange.length > 0) {
-    facilities = dedupe([...facilities, ...seedInRange]);
+    facilities = seedInRange;
+    source = "seed";
+  } else {
+    facilities = bundledFacilities().filter((facility) => requested.includes(facility.kind));
+    source = "seed";
+  }
+
+  // Only query external Overpass asynchronously in the background if cache was empty
+  if (cached.length === 0 && networkKinds.length > 0) {
+    void fetchFacilitiesFromOsm(lat, lng, radius, networkKinds).then((live) => {
+      if (live.length > 0) void storeFacilities(live);
+    });
   }
 
   if (seedOnly.length > 0) {
@@ -115,14 +109,15 @@ export async function GET(request: Request) {
     ]);
   }
 
-  const distanceOriginLat = Number.isFinite(rawLat) ? rawLat : lat;
-  const distanceOriginLng = Number.isFinite(rawLng) ? rawLng : lng;
+  const distanceOriginLat = inBengal ? rawLat : lat;
+  const distanceOriginLng = inBengal ? rawLng : lng;
 
   const withDistance = facilities
     .map((facility) => ({
       ...facility,
       distance: Math.round(haversine({ lat: distanceOriginLat, lng: distanceOriginLng }, facility)),
     }))
+    .filter((facility) => facility.kind === "help" || (facility.distance ?? 0) <= Math.max(radius, 3500))
     .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0))
     .slice(0, 150);
 
@@ -134,10 +129,12 @@ export async function GET(request: Request) {
     time: new Date().toISOString(),
   };
 
-  if (source !== "seed") {
-    if (cache.size > 200) cache.clear();
-    cache.set(cacheKey, { value: payload, expiresAt: Date.now() + CACHE_TTL_MS });
-  }
+  if (cache.size > 200) cache.clear();
+  cache.set(cacheKey, { value: payload, expiresAt: Date.now() + CACHE_TTL_MS });
 
-  return NextResponse.json(payload);
+  return NextResponse.json(payload, {
+    headers: {
+      "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
+    },
+  });
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/LanguageProvider";
 import { Chip, FacilityRow } from "@/components/map/bits";
@@ -11,6 +12,7 @@ import {
   AtmIcon,
   HospitalIcon,
   MapPinIcon,
+  NavigationIcon,
   ParkingIcon,
   PharmacyIcon,
   PhoneIcon,
@@ -24,15 +26,24 @@ import {
 function FacilityChipIcon({ kind }: { kind: string }) {
   const size = 13;
   switch (kind) {
-    case "hospital": return <HospitalIcon size={size} className="stroke-current" />;
-    case "police": return <PoliceIcon size={size} className="stroke-current" />;
-    case "toilets": return <ToiletIcon size={size} className="stroke-current" />;
-    case "restaurant": return <RestaurantIcon size={size} className="stroke-current" />;
-    case "pharmacy": return <PharmacyIcon size={size} className="stroke-current" />;
-    case "railway": return <TrainIcon size={size} className="stroke-current" />;
-    case "atm": return <AtmIcon size={size} className="stroke-current" />;
-    case "parking": return <ParkingIcon size={size} className="stroke-current" />;
-    default: return <MapPinIcon size={size} className="stroke-current" />;
+    case "hospital":
+      return <HospitalIcon size={size} className="stroke-current" />;
+    case "police":
+      return <PoliceIcon size={size} className="stroke-current" />;
+    case "toilets":
+      return <ToiletIcon size={size} className="stroke-current" />;
+    case "restaurant":
+      return <RestaurantIcon size={size} className="stroke-current" />;
+    case "pharmacy":
+      return <PharmacyIcon size={size} className="stroke-current" />;
+    case "railway":
+      return <TrainIcon size={size} className="stroke-current" />;
+    case "atm":
+      return <AtmIcon size={size} className="stroke-current" />;
+    case "parking":
+      return <ParkingIcon size={size} className="stroke-current" />;
+    default:
+      return <MapPinIcon size={size} className="stroke-current" />;
   }
 }
 
@@ -40,21 +51,28 @@ const KIND_CHIPS: { kind: string }[] = [
   { kind: "hospital" },
   { kind: "police" },
   { kind: "toilets" },
-  { kind: "restaurant" },
   { kind: "pharmacy" },
   { kind: "railway" },
+  { kind: "restaurant" },
   { kind: "atm" },
   { kind: "parking" },
 ];
 
-const RADII = [800, 1800, 3500];
+const RADII = [1800, 3500, 5000];
 
-/** Emergency and safety map: nearest hospital, police, toilet, food and help. */
+/** Emergency and safety directory: nearest hospital, police, toilet, food and help. */
 export default function HelpExplorer() {
   const { lang, t } = useI18n();
   const geo = useGeolocation(true);
-  const [kinds, setKinds] = useState<string[]>(["hospital", "police", "toilets", "restaurant"]);
-  const [radius, setRadius] = useState(1800);
+  const [kinds, setKinds] = useState<string[]>([
+    "hospital",
+    "police",
+    "toilets",
+    "pharmacy",
+    "railway",
+    "restaurant",
+  ]);
+  const [radius, setRadius] = useState(3500);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [helplines, setHelplines] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +85,7 @@ export default function HelpExplorer() {
     setLoading(true);
     const [nearby, help] = await Promise.all([
       fetchNearby(origin.lat, origin.lng, kinds, radius),
-      fetchNearby(origin.lat, origin.lng, ["help"], 40000),
+      fetchNearby(NAIHATI_CENTER.lat, NAIHATI_CENTER.lng, ["help"], 6000),
     ]);
     setFacilities(nearby.facilities);
     setHelplines(help.facilities);
@@ -91,7 +109,11 @@ export default function HelpExplorer() {
 
   const toggleKind = (kind: string) =>
     setKinds((current) =>
-      current.includes(kind) ? current.filter((item) => item !== kind) : [...current, kind],
+      current.includes(kind)
+        ? current.length > 1
+          ? current.filter((item) => item !== kind)
+          : current
+        : [...current, kind],
     );
 
   const showRoute = useCallback(
@@ -117,7 +139,7 @@ export default function HelpExplorer() {
       <p className="mt-0.5 text-[12px] text-white/55">{t("helpIntro")}</p>
 
       {/* Emergency numbers */}
-      <section className="glass mt-3.5 rounded-3xl p-3.5 border border-white/10">
+      <section className="glass mt-3.5 rounded-3xl border border-white/10 p-3.5">
         <div className="flex items-center justify-between">
           <p className="text-[12.5px] font-semibold text-white">{t("emergencyNumbers")}</p>
           <span className="text-[11px] text-white/45">
@@ -164,8 +186,8 @@ export default function HelpExplorer() {
       <div className="mt-2.5 flex items-center justify-between">
         <p className="text-[11px] text-white/50">
           {facilities.length} {lang === "bn" ? "জায়গা পাওয়া গেছে" : "places found"}
-          {source === "seed"
-            ? ` · ${lang === "bn" ? "যাচাইকৃত স্থানীয় তালিকা" : "verified local list"}`
+          {source === "seed" || source === "cache"
+            ? ` · ${lang === "bn" ? "যাচাইকৃত তালিকা" : "verified local list"}`
             : ""}
         </p>
         <div className="flex gap-1">
@@ -196,6 +218,12 @@ export default function HelpExplorer() {
               <div className="space-y-1.5">
                 {items.map((facility) => {
                   const routeText = routes[`${facility.kind}:${facility.name}`];
+                  const mapRouteUrl = `/map?facilityKind=${encodeURIComponent(
+                    String(facility.kind),
+                  )}&facilityLat=${facility.lat}&facilityLng=${facility.lng}&facilityName=${encodeURIComponent(
+                    facility.name,
+                  )}&route=1`;
+
                   return (
                     <div key={`${facility.kind}-${facility.name}`} className="space-y-1">
                       <FacilityRow
@@ -203,12 +231,25 @@ export default function HelpExplorer() {
                         lang={lang}
                         onRoute={() => void showRoute(facility)}
                       />
-                      {routeText ? (
-                        <p className="flex items-center gap-1.5 px-3 text-[11px] text-gold">
-                          <WalkIcon size={12} className="stroke-gold" />
-                          <span>{routeText}</span>
-                        </p>
-                      ) : null}
+                      <div className="flex items-center justify-between px-3">
+                        {routeText ? (
+                          <p className="flex items-center gap-1.5 text-[11px] text-gold">
+                            <WalkIcon size={12} className="stroke-gold" />
+                            <span>{routeText}</span>
+                          </p>
+                        ) : (
+                          <span />
+                        )}
+                        <Link
+                          href={mapRouteUrl}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-gold hover:underline"
+                        >
+                          <NavigationIcon size={11} className="stroke-gold" />
+                          <span>
+                            {lang === "bn" ? "ম্যাপে লাইভ পথ দেখুন →" : "Live Route on Map →"}
+                          </span>
+                        </Link>
+                      </div>
                     </div>
                   );
                 })}

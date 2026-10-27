@@ -77,13 +77,13 @@ export function useGeolocation(enabled: boolean): GeoState & { request: () => vo
 }
 
 export function usePandals(): {
-  pandals: Pandal[];
+  pandals: (Pandal & { crowd?: CrowdInfo })[];
   source: string;
   loading: boolean;
   error: string | null;
   reload: (force?: boolean) => Promise<void>;
 } {
-  const [pandals, setPandals] = useState<Pandal[]>([]);
+  const [pandals, setPandals] = useState<(Pandal & { crowd?: CrowdInfo })[]>([]);
   const [source, setSource] = useState<string>("seed");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +109,10 @@ export function usePandals(): {
   return { pandals, source, loading, error, reload };
 }
 
-/** Crowd levels that refresh on their own so the map stays current. */
+/**
+ * Crowd levels that seed immediately from the `/api/pandals` response (saving
+ * an extra network round-trip on page load) and refresh in the background.
+ */
 export function useCrowdLevels(
   slugs: string[],
   intervalMs = 90_000,
@@ -121,21 +124,38 @@ export function useCrowdLevels(
   const [levels, setLevels] = useState<Record<string, CrowdInfo>>({});
   const key = slugs.join(",");
 
+  // Seed immediately from cached pandals response if available
+  useEffect(() => {
+    if (key.length === 0) return;
+    void loadPandals(false)
+      .then((payload) => {
+        const seeded: Record<string, CrowdInfo> = {};
+        for (const p of payload.pandals ?? []) {
+          const withCrowd = p as Pandal & { crowd?: CrowdInfo };
+          if (withCrowd.crowd) seeded[p.slug] = withCrowd.crowd;
+        }
+        if (Object.keys(seeded).length > 0) {
+          setLevels((prev) => ({ ...seeded, ...prev }));
+        }
+      })
+      .catch(() => {});
+  }, [key]);
+
   const refresh = useCallback(async () => {
     if (key.length === 0) return;
     try {
       const next = await fetchCrowd(key.split(","));
       setLevels(next);
     } catch {
-      // keep the previous levels on a transient failure
+      // keep previous levels on transient failure
     }
   }, [key]);
 
   useEffect(() => {
-    void refresh();
+    if (key.length === 0) return;
     const timer = setInterval(() => void refresh(), intervalMs);
     return () => clearInterval(timer);
-  }, [refresh, intervalMs]);
+  }, [refresh, intervalMs, key]);
 
   const setLevel = useCallback((slug: string, info: CrowdInfo) => {
     setLevels((current) => ({ ...current, [slug]: info }));
@@ -144,7 +164,6 @@ export function useCrowdLevels(
   return { levels, setLevel, refresh };
 }
 
-/** Re-renders on an interval — used for the "area crowd now" clock. */
 export function useTicker(intervalMs = 60_000): number {
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -154,7 +173,6 @@ export function useTicker(intervalMs = 60_000): number {
   return tick;
 }
 
-/** Small helper for copy-to-clipboard feedback. */
 export function useCopy(timeoutMs = 2000): { copied: boolean; copy: (text: string) => void } {
   const [copied, setCopied] = useState(false);
   const copy = useCallback(

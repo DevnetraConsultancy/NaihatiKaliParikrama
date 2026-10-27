@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/LanguageProvider";
 import { CategoryTag, Chip, CrowdPill } from "@/components/map/bits";
-import { MapPinIcon, NavigationIcon, WalkIcon } from "@/components/Icons";
-import { formatDistance, formatMinutes, nearestTo, roughWalkMinutes } from "@/lib/geo";
+import { CloseIcon, MapPinIcon, NavigationIcon, SearchIcon, WalkIcon } from "@/components/Icons";
+import { NAIHATI_CENTER, formatDistance, nearestTo, roughWalkMinutes } from "@/lib/geo";
 import { matchesQuery, pandalHaystack } from "@/lib/search";
 import { useCrowdLevels, useGeolocation, usePandals } from "@/lib/hooks";
 import { PANDAL_CATEGORIES, type PandalCategory } from "@/lib/types";
@@ -20,17 +20,22 @@ export default function PandalsExplorer() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"distance" | "name">("distance");
 
+  const origin = geo.position ?? NAIHATI_CENTER;
+
   const list = useMemo(() => {
     const filtered = pandals.filter((pandal) => {
       if (category !== "all" && pandal.category !== category) return false;
       if (query.trim().length === 0) return true;
       return matchesQuery(pandalHaystack(pandal), query);
     });
-    if (sort === "name" || !geo.position) {
-      return filtered.map((pandal) => ({ ...pandal, distance_m: undefined as number | undefined }));
+    const withDist = nearestTo(filtered, origin);
+    if (sort === "name") {
+      return [...withDist].sort((a, b) =>
+        lang === "bn" ? a.name_bn.localeCompare(b.name_bn) : a.name_en.localeCompare(b.name_en),
+      );
     }
-    return nearestTo(filtered, geo.position);
-  }, [pandals, category, query, sort, geo.position]);
+    return withDist;
+  }, [pandals, category, query, sort, origin, lang]);
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pt-4 pb-28">
@@ -44,19 +49,8 @@ export default function PandalsExplorer() {
       </p>
 
       {/* Search Input */}
-      <div className="glass mt-3 flex h-11 items-center gap-2.5 rounded-2xl px-3.5 border border-white/10">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className="stroke-white/40 shrink-0"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
+      <div className="glass mt-3 flex h-11 items-center gap-2.5 rounded-2xl border border-white/10 px-3.5">
+        <SearchIcon size={16} className="shrink-0 text-white/45" />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -67,9 +61,10 @@ export default function PandalsExplorer() {
           <button
             type="button"
             onClick={() => setQuery("")}
-            className="text-[12px] text-white/40 hover:text-white"
+            aria-label="Clear search"
+            className="text-white/45 hover:text-white"
           >
-            ✕
+            <CloseIcon size={14} />
           </button>
         ) : null}
       </div>
@@ -100,14 +95,18 @@ export default function PandalsExplorer() {
       {/* Sort & Count Bar */}
       <div className="mt-2 flex items-center justify-between">
         <p className="text-[11.5px] text-white/50">
-          {list.length} {t("navPandals")}
-          {geo.position && sort === "distance"
-            ? ` · ${lang === "bn" ? "নিকটতম প্রথম" : "nearest first"}`
-            : ""}
+          {list.length} {t("navPandals")} ·{" "}
+          {geo.position
+            ? lang === "bn"
+              ? "আপনার অবস্থান থেকে"
+              : "from your location"
+            : lang === "bn"
+              ? "নৈহাটি স্টেশন থেকে"
+              : "from Naihati Station"}
         </p>
         <div className="flex gap-1">
           <Chip active={sort === "distance"} onClick={() => setSort("distance")}>
-            <MapPinIcon size={12} className="stroke-current inline mr-1" />
+            <MapPinIcon size={12} className="mr-1 inline stroke-current" />
             {lang === "bn" ? "দূরত্ব" : "Distance"}
           </Chip>
           <Chip active={sort === "name"} onClick={() => setSort("name")}>
@@ -126,16 +125,23 @@ export default function PandalsExplorer() {
       ) : (
         <ul className="mt-3 space-y-2">
           {list.map((pandal) => {
+            const crowd = levels[pandal.slug] ?? pandal.crowd;
             const walkMin =
               typeof pandal.distance_m === "number"
-                ? roughWalkMinutes(pandal.distance_m, levels[pandal.slug]?.level ?? 1)
+                ? roughWalkMinutes(pandal.distance_m, crowd?.level ?? 1)
                 : null;
             return (
               <li
                 key={pandal.slug}
                 className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 transition-colors hover:bg-white/[0.07]"
               >
-                <div className="flex items-start justify-between gap-2.5">
+                <div className="flex items-start gap-3">
+                  <img
+                    src="/kali-pin.jpg"
+                    alt=""
+                    className="mt-0.5 size-10 shrink-0 rounded-full border border-gold/70 object-cover"
+                    loading="lazy"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <CategoryTag category={pandal.category} lang={lang} />
@@ -159,7 +165,7 @@ export default function PandalsExplorer() {
                   </div>
 
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <CrowdPill info={levels[pandal.slug]} lang={lang} size="sm" />
+                    <CrowdPill info={crowd} lang={lang} size="sm" />
                   </div>
                 </div>
 
@@ -174,24 +180,30 @@ export default function PandalsExplorer() {
                         {walkMin ? (
                           <span className="flex items-center gap-0.5 text-white/50">
                             <WalkIcon size={12} className="stroke-white/50" />
-                            <span>~{walkMin} {lang === "bn" ? "মিনিট" : "min"}</span>
+                            <span>
+                              ~{walkMin} {lang === "bn" ? "মিনিট" : "min"}
+                            </span>
                           </span>
                         ) : null}
                       </>
-                    ) : (
-                      <span className="text-[11px] text-white/40">
-                        {lang === "bn" ? "নৈহাটি" : "Naihati"}
-                      </span>
-                    )}
+                    ) : null}
                   </div>
 
-                  <Link
-                    href={`/map?pandal=${pandal.slug}&route=1`}
-                    className="liquid-press inline-flex items-center gap-1.5 rounded-xl bg-gold/15 px-3 py-1.5 text-[11.5px] font-semibold text-gold transition-colors hover:bg-gold hover:text-ink"
-                  >
-                    <NavigationIcon size={13} className="stroke-current" />
-                    <span>{lang === "bn" ? "পথ দেখাও" : "Show Route"}</span>
-                  </Link>
+                  <div className="flex items-center gap-1.5">
+                    <Link
+                      href={`/map?pandal=${pandal.slug}`}
+                      className="liquid-press rounded-xl border border-white/15 bg-white/5 px-2.5 py-1.5 text-[11.5px] text-white/80 hover:bg-white/10"
+                    >
+                      {lang === "bn" ? "ম্যাপে দেখুন" : "View Pin"}
+                    </Link>
+                    <Link
+                      href={`/map?pandal=${pandal.slug}&route=1`}
+                      className="liquid-press inline-flex items-center gap-1.5 rounded-xl bg-gold/15 px-3 py-1.5 text-[11.5px] font-semibold text-gold transition-colors hover:bg-gold hover:text-ink"
+                    >
+                      <NavigationIcon size={13} className="stroke-current" />
+                      <span>{lang === "bn" ? "পথ দেখাও" : "Show Route"}</span>
+                    </Link>
+                  </div>
                 </div>
               </li>
             );

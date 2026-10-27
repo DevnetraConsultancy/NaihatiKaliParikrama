@@ -95,9 +95,21 @@ function toSteps(route: OsrmRoute): RouteStep[] {
   return steps;
 }
 
+async function queryMirror(url: string): Promise<OsrmRoute> {
+  const response = await fetch(url, {
+    headers: { "User-Agent": "NaihatiKaliParikrama/1.0" },
+    signal: AbortSignal.timeout(3_800),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("mirror-failed");
+  const payload = (await response.json()) as { code?: string; routes?: OsrmRoute[] };
+  if (payload.code !== "Ok" || !payload.routes?.length) throw new Error("no-route");
+  return payload.routes[0];
+}
+
 /**
- * Routes between two (or more) points using free OSRM mirrors.
- * Tries dedicated foot/car OSRM servers first, then standard OSRM fallback.
+ * Routes between two (or more) points by racing public OSRM mirrors in parallel
+ * so the fastest mirror answers in ~200-400ms instead of sequential timeouts.
  */
 export async function fetchRoute(
   points: LatLng[],
@@ -109,26 +121,15 @@ export async function fetchRoute(
 
   const endpoints = [
     `https://routing.openstreetmap.de/routed-${profile === "foot" ? "foot" : "car"}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=true`,
-    `${osrmBase()}/route/v1/${osrmProfile}/${coordinates}?overview=full&geometries=geojson&steps=true`,
     `${osrmBase()}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=true`,
   ];
 
-  for (const url of endpoints) {
-    try {
-      const response = await fetch(url, {
-        headers: { "User-Agent": "NaihatiKaliParikrama/1.0" },
-        signal: AbortSignal.timeout(7_500),
-        cache: "no-store",
-      });
-      if (!response.ok) continue;
-      const payload = (await response.json()) as { code?: string; routes?: OsrmRoute[] };
-      if (payload.code !== "Ok" || !payload.routes?.length) continue;
-      return buildResult(payload.routes[0], profile, `osrm-${osrmProfile}`);
-    } catch {
-      // Try next mirror
-    }
+  try {
+    const winningRoute = await Promise.any(endpoints.map((url) => queryMirror(url)));
+    return buildResult(winningRoute, profile, `osrm-${osrmProfile}`);
+  } catch {
+    return null;
   }
-  return null;
 }
 
 export function buildResult(

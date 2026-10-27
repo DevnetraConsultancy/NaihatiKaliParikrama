@@ -20,7 +20,6 @@ import {
   RestaurantIcon,
   SearchIcon,
   ShareIcon,
-  SparklesIcon,
   SunIcon,
   TempleIcon,
   ToiletIcon,
@@ -57,6 +56,7 @@ import { useCrowdLevels, useGeolocation, usePandals } from "@/lib/hooks";
 import {
   PANDAL_CATEGORIES,
   type Facility,
+  type FacilityKind,
   type LatLng,
   type PandalCategory,
   type RouteResult,
@@ -111,7 +111,6 @@ const FACILITY_CHIPS: { kind: string }[] = [
   { kind: "restaurant" },
 ];
 
-// Show all core emergency & utility services on the map by default
 const DEFAULT_FACILITY_KINDS = [
   "hospital",
   "police",
@@ -137,7 +136,7 @@ export default function MapExperience() {
   const { lang, t } = useI18n();
   const { pandals, loading } = usePandals();
   const geo = useGeolocation(true);
-  const { levels, setLevel, refresh } = useCrowdLevels(
+  const { levels, setLevel } = useCrowdLevels(
     useMemo(() => pandals.map((p) => p.slug), [pandals]),
   );
 
@@ -160,6 +159,7 @@ export default function MapExperience() {
   const [query, setQuery] = useState("");
 
   // Live Navigation state
+  const [isNavigating, setIsNavigating] = useState(false);
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [routeDestinationPoints, setRouteDestinationPoints] = useState<LatLng[]>([]);
   const [routeTitle, setRouteTitle] = useState<{ bn: string; en: string } | null>(null);
@@ -170,16 +170,11 @@ export default function MapExperience() {
   const [toast, setToast] = useState<string | null>(null);
   const [reportBusy, setReportBusy] = useState(false);
 
-  // Determine if user's real GPS is within Naihati area (within 15 km of Naihati Center)
   const gpsInNaihati = useMemo(() => {
     if (!geo.position) return false;
     return haversine(geo.position, NAIHATI_CENTER) <= 15_000;
   }, [geo.position]);
 
-  // Effective user location on the Naihati map:
-  // 1. Manual spot if set by user
-  // 2. Real GPS if inside Naihati (or if user explicitly enabled follow)
-  // 3. Naihati Center fallback so the user marker & routes always work seamlessly on Naihati's map
   const origin: LatLng = useMemo(() => {
     if (manualPosition) return manualPosition;
     if (geo.position && (gpsInNaihati || follow)) return geo.position;
@@ -190,11 +185,6 @@ export default function MapExperience() {
     setToast(message);
     setTimeout(() => setToast((current) => (current === message ? null : current)), 3200);
   }, []);
-
-  // ----------------------------------------------------- crowd refresh cycle
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
 
   // ---------------------------------------- Load all Naihati Emergency Pins
   useEffect(() => {
@@ -209,7 +199,6 @@ export default function MapExperience() {
     };
   }, []);
 
-  // Recompute facility distances relative to current user origin & filter by active kinds
   const visibleFacilities = useMemo(() => {
     return allFacilities
       .filter((f) => facilityKinds.includes(f.kind))
@@ -222,7 +211,7 @@ export default function MapExperience() {
 
   // --------------------------------------------------------------- Pandals
   const withCrowd = useMemo(
-    () => pandals.map((pandal) => ({ ...pandal, crowd: levels[pandal.slug] })),
+    () => pandals.map((pandal) => ({ ...pandal, crowd: levels[pandal.slug] ?? pandal.crowd })),
     [pandals, levels],
   );
 
@@ -254,6 +243,7 @@ export default function MapExperience() {
       const points = [startPoint, ...destinations];
       const result = await fetchRoute(points, mode);
       setRoute(result);
+      setIsNavigating(true);
       setFitRoute(shouldFitBounds);
       lastRoutedOriginRef.current = startPoint;
       setRouteLoading(false);
@@ -261,7 +251,6 @@ export default function MapExperience() {
     [],
   );
 
-  // Start Google Maps-style live directions to a Pandal
   const startDirectionsToPandal = useCallback(
     (slug: string) => {
       const target = pandals.find((p) => p.slug === slug);
@@ -270,6 +259,7 @@ export default function MapExperience() {
       setActiveFacility(null);
       setShowFullDetails(false);
       setShowListDrawer(false);
+      setIsNavigating(true);
       const dest = [{ lat: target.lat, lng: target.lng }];
       setRouteDestinationPoints(dest);
       setRouteTitle({ bn: target.name_bn, en: target.name_en });
@@ -278,13 +268,13 @@ export default function MapExperience() {
     [pandals, origin, profile, calculateLiveRoute],
   );
 
-  // Start Google Maps-style live directions to an Emergency Facility
   const startDirectionsToFacility = useCallback(
     (facility: Facility) => {
       setActiveFacility(facility);
       setActiveSlug(null);
       setShowFullDetails(false);
       setShowListDrawer(false);
+      setIsNavigating(true);
       const dest = [{ lat: facility.lat, lng: facility.lng }];
       setRouteDestinationPoints(dest);
       setRouteTitle({ bn: facility.name, en: facility.name });
@@ -293,8 +283,8 @@ export default function MapExperience() {
     [origin, profile, calculateLiveRoute],
   );
 
-  // Stop / exit active navigation
   const clearNavigation = useCallback(() => {
+    setIsNavigating(false);
     setRoute(null);
     setRouteDestinationPoints([]);
     setRouteTitle(null);
@@ -303,7 +293,6 @@ export default function MapExperience() {
     setFollow(false);
   }, []);
 
-  // Switch between Walk and Drive mode during active route
   const handleProfileChange = useCallback(
     (mode: "foot" | "car") => {
       setProfile(mode);
@@ -316,12 +305,12 @@ export default function MapExperience() {
 
   // Live GPS route auto-refresh as user walks (> 18 meters movement)
   useEffect(() => {
-    if (routeDestinationPoints.length === 0 || !lastRoutedOriginRef.current) return;
+    if (!isNavigating || routeDestinationPoints.length === 0 || !lastRoutedOriginRef.current) return;
     const movedMeters = haversine(origin, lastRoutedOriginRef.current);
     if (movedMeters >= 18) {
       void calculateLiveRoute(origin, routeDestinationPoints, profile, false);
     }
-  }, [origin, routeDestinationPoints, profile, calculateLiveRoute]);
+  }, [isNavigating, origin, routeDestinationPoints, profile, calculateLiveRoute]);
 
   // -------------------------------------------------- Deep links (QR / share)
   const handledDeepLinkRef = useRef(false);
@@ -332,12 +321,37 @@ export default function MapExperience() {
     const stopsParam = params.get("stops");
     const categoryParam = params.get("cat");
     const facilityParam = params.get("facility");
+    const followParam = params.get("follow");
+    const facLat = Number(params.get("facilityLat"));
+    const facLng = Number(params.get("facilityLng"));
+    const facName = params.get("facilityName");
+    const facKind = params.get("facilityKind") ?? "help";
 
+    if (followParam === "1") {
+      setFollow(true);
+    }
     if (categoryParam && PANDAL_CATEGORIES.includes(categoryParam as PandalCategory)) {
       setCategories([categoryParam as PandalCategory]);
     }
     if (facilityParam) {
       setFacilityKinds((current) => [...new Set([...current, facilityParam])]);
+    }
+
+    if (Number.isFinite(facLat) && Number.isFinite(facLng) && facName) {
+      handledDeepLinkRef.current = true;
+      const targetFacility: Facility = {
+        kind: facKind as FacilityKind,
+        name: facName,
+        lat: facLat,
+        lng: facLng,
+        source: "seed",
+      };
+      setFacilityKinds((current) => [...new Set([...current, facKind])]);
+      setActiveFacility(targetFacility);
+      if (params.get("route") === "1") {
+        startDirectionsToFacility(targetFacility);
+      }
+      return;
     }
 
     if (stopsParam) {
@@ -348,6 +362,7 @@ export default function MapExperience() {
       if (targets.length > 0) {
         handledDeepLinkRef.current = true;
         setActiveSlug(targets[0].slug);
+        setIsNavigating(true);
         const dests = targets.map((t) => ({ lat: t.lat, lng: t.lng }));
         setRouteDestinationPoints(dests);
         setRouteTitle({
@@ -374,7 +389,14 @@ export default function MapExperience() {
     } else {
       handledDeepLinkRef.current = true;
     }
-  }, [pandals, origin, profile, calculateLiveRoute, startDirectionsToPandal]);
+  }, [
+    pandals,
+    origin,
+    profile,
+    calculateLiveRoute,
+    startDirectionsToPandal,
+    startDirectionsToFacility,
+  ]);
 
   // -------------------------------------------------- Crowd report & share
   const handleReport = useCallback(
@@ -428,7 +450,6 @@ export default function MapExperience() {
     );
   };
 
-  // Current active navigation step
   const primaryStep = route?.steps?.[0] ?? null;
   const activeMinutes = route
     ? profile === "foot"
@@ -471,6 +492,7 @@ export default function MapExperience() {
         onSelectPandal={(slug) => {
           setActiveSlug(slug);
           setActiveFacility(null);
+          setIsNavigating(false);
           setShowFullDetails(false);
           setShowListDrawer(false);
           setFitRoute(false);
@@ -478,17 +500,17 @@ export default function MapExperience() {
         onSelectFacility={(facility) => {
           setActiveFacility(facility);
           setActiveSlug(null);
+          setIsNavigating(false);
           setShowFullDetails(false);
           setShowListDrawer(false);
           setFitRoute(false);
         }}
         onMapClick={(point) => {
-          // Clicking empty map area closes open drawers or sets manual spot if desired
           if (showListDrawer) {
             setShowListDrawer(false);
             return;
           }
-          if (!geo.position) {
+          if (!geo.position && !activePandal && !activeFacility) {
             setManualPosition(point);
             showToast(
               lang === "bn"
@@ -505,11 +527,10 @@ export default function MapExperience() {
       {/* ===================================================================
           TOP BAR: EITHER GOOGLE MAPS LIVE NAVIGATION BANNER OR SEARCH/FILTERS
          =================================================================== */}
-      {route ? (
+      {isNavigating && route ? (
         <div className="pointer-events-none absolute inset-x-0 top-2 z-[600] px-2.5 sm:px-4">
           <div className="pointer-events-auto mx-auto max-w-xl overflow-hidden rounded-3xl border border-emerald-400/35 bg-[#091e1a]/95 shadow-2xl backdrop-blur-xl">
             <div className="flex items-center gap-3 px-3.5 py-3">
-              {/* Turn Maneuver Icon Box */}
               <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-500 text-ink shadow-md">
                 <TurnArrowIcon
                   size={24}
@@ -521,7 +542,6 @@ export default function MapExperience() {
                 />
               </div>
 
-              {/* Instruction & Destination */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-300 uppercase">
@@ -553,7 +573,6 @@ export default function MapExperience() {
                 ) : null}
               </div>
 
-              {/* Steps & Exit Buttons */}
               <div className="flex shrink-0 items-center gap-1.5">
                 {route.steps.length > 0 ? (
                   <button
@@ -575,7 +594,6 @@ export default function MapExperience() {
               </div>
             </div>
 
-            {/* Expandable Turn-by-Turn Steps Drawer */}
             {showStepsDrawer && route.steps.length > 0 ? (
               <div className="max-h-60 overflow-y-auto border-t border-white/10 bg-ink/90 px-3.5 py-2.5 no-scrollbar">
                 <ol className="space-y-2">
@@ -645,7 +663,7 @@ export default function MapExperience() {
               title={t("nightMap")}
               className="glass-strong liquid-press grid size-10 shrink-0 place-items-center rounded-2xl text-gold shadow-lg"
             >
-              {nightMode ? <MoonIcon size={16} /> : <SunIcon size={16} />}
+              {nightMode ? <SunIcon size={16} /> : <MoonIcon size={16} />}
             </button>
           </div>
 
@@ -739,7 +757,6 @@ export default function MapExperience() {
           FLOATING RIGHT MAP CONTROLS (RECENTER NAIHATI / MY GPS / ZOOM)
          =================================================================== */}
       <div className="pointer-events-auto absolute right-2.5 bottom-36 z-[600] flex flex-col gap-2 sm:right-4">
-        {/* Recenter on Naihati Main Map */}
         <button
           type="button"
           onClick={() => {
@@ -756,7 +773,6 @@ export default function MapExperience() {
           <CompassIcon size={18} />
         </button>
 
-        {/* Fly to User's Position */}
         <button
           type="button"
           onClick={() => {
@@ -797,20 +813,14 @@ export default function MapExperience() {
       </div>
 
       {/* ===================================================================
-          BOTTOM UI:
-          1. GOOGLE MAPS LIVE NAVIGATION TRIP BAR (when route is active)
-          2. SELECTED PANDAL CARD (when a Kali pin is clicked)
-          3. SELECTED EMERGENCY FACILITY CARD (when a facility pin is clicked)
-          4. PANDAL LIST DRAWER (when user taps "List" or searches)
-          5. COMPACT FLOATING DOCK (default unobstructed map state)
+          BOTTOM UI
          =================================================================== */}
       <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[650] px-2.5 sm:px-4">
         <div className="pointer-events-auto mx-auto w-full max-w-xl">
-          {route ? (
+          {isNavigating && route ? (
             /* 1. GOOGLE MAPS LIVE NAVIGATION BOTTOM BAR */
             <div className="glass-strong sheet-enter rounded-3xl border border-gold/35 p-3.5 shadow-2xl">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                {/* Live ETA & Distance */}
                 <div className="flex items-baseline gap-3">
                   <div>
                     <div className="flex items-baseline gap-2">
@@ -829,7 +839,6 @@ export default function MapExperience() {
                   </div>
                 </div>
 
-                {/* Walk / Drive Mode Switcher + End Route */}
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
@@ -882,7 +891,6 @@ export default function MapExperience() {
             /* 2. SELECTED PANDAL PIN ACTION CARD */
             <div className="glass-strong sheet-enter max-h-[62dvh] overflow-y-auto rounded-3xl border border-gold/40 p-3.5 shadow-2xl no-scrollbar">
               <div className="flex items-start gap-3">
-                {/* Maa Kali Pin Thumbnail */}
                 <img
                   src="/kali-pin.jpg"
                   alt={activePandal.name_en}
@@ -918,7 +926,6 @@ export default function MapExperience() {
                 </button>
               </div>
 
-              {/* Quick Walk / Drive Stats */}
               <div className="mt-2.5 grid grid-cols-3 gap-2">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-2.5 py-1.5">
                   <p className="text-[10px] text-white/50">{t("walk")}</p>
@@ -950,7 +957,6 @@ export default function MapExperience() {
                 </div>
               </div>
 
-              {/* Primary Action Buttons: Directions (Google Maps Style) + Details + Share */}
               <div className="mt-3 flex items-center gap-2">
                 <button
                   type="button"
@@ -990,7 +996,6 @@ export default function MapExperience() {
                 </button>
               </div>
 
-              {/* Expandable Details & Crowd Reporter */}
               {showFullDetails ? (
                 <div className="fade-in mt-3 space-y-2.5 border-t border-white/10 pt-3">
                   {(lang === "bn"
@@ -1079,7 +1084,7 @@ export default function MapExperience() {
               </div>
             </div>
           ) : showListDrawer ? (
-            /* 4. PANDAL LIST DRAWER (ONLY WHEN OPENED BY USER) */
+            /* 4. PANDAL LIST DRAWER */
             <div className="glass-strong sheet-enter max-h-[60dvh] overflow-hidden rounded-3xl border border-white/15 shadow-2xl">
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
                 <p className="text-[12.5px] font-semibold text-white/85">
@@ -1113,7 +1118,7 @@ export default function MapExperience() {
               </div>
             </div>
           ) : (
-            /* 5. DEFAULT COMPACT FLOATING DOCK (KEEPS 85% OF NAIHATI MAP VISIBLE!) */
+            /* 5. DEFAULT COMPACT FLOATING DOCK */
             <div className="glass-strong flex items-center justify-between gap-2.5 rounded-3xl border border-white/15 px-3.5 py-2.5 shadow-2xl">
               {loading ? (
                 <p className="py-1 text-[12.5px] text-white/65">{t("loading")}</p>
@@ -1167,7 +1172,6 @@ export default function MapExperience() {
         </div>
       </div>
 
-      {/* Toast Notification */}
       {toast ? (
         <div className="glass-strong fade-in pointer-events-none absolute inset-x-0 bottom-24 z-[700] mx-auto w-fit max-w-[92%] rounded-2xl border border-gold/30 px-4 py-2 text-[12.5px] font-medium text-white shadow-xl">
           {toast}

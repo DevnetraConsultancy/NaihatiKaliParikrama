@@ -2,7 +2,7 @@ import seedPandalsJson from "@/data/pandals.seed.json";
 import seedFacilitiesJson from "@/data/facilities.seed.json";
 import { getSql, hasDatabase } from "./db";
 import { blendCrowd, baselineLevel, type CrowdLevel, type CrowdReport } from "./crowd";
-import { bboxAround, haversine } from "./geo";
+import { bboxAround } from "./geo";
 import type { CrowdInfo, Facility, Pandal } from "./types";
 
 interface SeedFile<T> {
@@ -31,8 +31,31 @@ const PANDAL_COLUMNS = `slug, name_en, name_bn, category, area_en, area_bn, lat,
   landmark_en, landmark_bn, committee, established, description_en, description_bn,
   featured, verified, photo_url, created_at, updated_at`;
 
+// Fast in-memory cache so serverless invocations do not make redundant cross-region DB round-trips
+const globalRepoCache = globalThis as unknown as {
+  __nkpPandalsCache?: { pandals: Pandal[]; source: "database" | "seed"; expiresAt: number };
+  __nkpCrowdRowsCache?: { rows: { pandal_slug: string; level: number; created_ms: string }[]; expiresAt: number };
+  __nkpFacilitiesDbCache?: { rows: Facility[]; expiresAt: number };
+};
+
+const PANDALS_TTL_MS = 60 * 1000;
+const CROWD_TTL_MS = 15 * 1000;
+const FACILITIES_TTL_MS = 120 * 1000;
+
+export function invalidateRepoCaches(): void {
+  globalRepoCache.__nkpPandalsCache = undefined;
+  globalRepoCache.__nkpCrowdRowsCache = undefined;
+  globalRepoCache.__nkpFacilitiesDbCache = undefined;
+}
+
 export async function listPandals(): Promise<{ pandals: Pandal[]; source: "database" | "seed" }> {
   if (!hasDatabase()) return { pandals: bundledPandals(), source: "seed" };
+
+  const cached = globalRepoCache.__nkpPandalsCache;
+  if (cached && cached.expiresAt > Date.now()) {
+    return { pandals: cached.pandals, source: cached.source };
+  }
+
   try {
     const sql = getSql();
     const rows = (await sql.query(`select ${PANDAL_COLUMNS} from pandals order by name_en asc`)) as
@@ -40,6 +63,11 @@ export async function listPandals(): Promise<{ pandals: Pandal[]; source: "datab
       | { rows?: Pandal[] };
     const pandals = Array.isArray(rows) ? rows : (rows.rows ?? []);
     if (pandals.length === 0) return { pandals: bundledPandals(), source: "seed" };
+    globalRepoCache.__nkpPandalsCache = {
+      pandals,
+      source: "database",
+      expiresAt: Date.now() + PANDALS_TTL_MS,
+    };
     return { pandals, source: "database" };
   } catch (error) {
     console.error("[repo] listPandals failed:", (error as Error).message);
@@ -100,6 +128,7 @@ export async function upsertPandal(input: PandalInput): Promise<Pandal> {
       Boolean(input.verified),
     ],
   )) as Pandal[] | { rows?: Pandal[] };
+  globalRepoCache.__nkpPandalsCache = undefined;
   const list = Array.isArray(rows) ? rows : (rows.rows ?? []);
   return list[0];
 }
@@ -107,6 +136,7 @@ export async function upsertPandal(input: PandalInput): Promise<Pandal> {
 export async function deletePandal(slug: string): Promise<boolean> {
   const sql = getSql();
   await sql.query("delete from pandals where slug = $1", [slug]);
+  globalRepoCache.__nkpPandalsCache = undefined;
   return true;
 }
 
@@ -139,6 +169,7 @@ export async function replaceAllPandals(inputs: PandalInput[]): Promise<number> 
       ],
     );
   }
+  globalRepoCache.__nkpPandalsCache = undefined;
   return inputs.length;
 }
 
@@ -151,7 +182,6 @@ interface MemoryStore {
   reporters: Map<string, number>;
 }
 
-// Survives dev-server hot reloads and is shared by every route in the process.
 const globalStore = globalThis as unknown as { __nkpCrowd?: MemoryStore };
 const memory: MemoryStore =
   globalStore.__nkpCrowd ??
@@ -179,12 +209,22 @@ export async function getCrowdLevels(slugs: string[]): Promise<CrowdMap> {
   }
 
   try {
-    const sql = getSql();
-    const rows = (await sql.query(
-      `select pandal_slug, level, extract(epoch from created_at) * 1000 as created_ms
-       from crowd_reports
-       where created_at > now() - interval '3 hours'`,
-    )) as { pandal_slug: string; level: number; created_ms: string }[];
+    let rows: { pandal_slug: string; level: number; created_ms: string }[];
+    const cached = globalRepoCache.__nkpCrowdRowsCache;
+    if (cached && cached.expiresAt > Date.now()) {
+      rows = cached.rows;
+    } else {
+      const sql = getSql();
+      rows = (await sql.query(
+        `select pandal_slug, level, extract(epoch from created_at) * 1000 as created_ms
+         from crowd_reports
+         where created_at > now() - interval '3 hours'`,
+      )) as { pandal_slug: string; level: number; created_ms: string }[];
+      globalRepoCache.__nkpCrowdRowsCache = {
+        rows,
+        expiresAt: Date.now() + CROWD_TTL_MS,
+      };
+    }
 
     const grouped = new Map<string, CrowdReport[]>();
     for (const row of rows) {
@@ -248,6 +288,7 @@ export async function recordCrowdReport(
         "insert into crowd_reports (pandal_slug, level, source, reporter_hash) values ($1,$2,$3,$4)",
         [slug, level, "user", reporterHash],
       );
+      globalRepoCache.__nkpCrowdRowsCache = undefined;
       memory.reporters.set(cooldownKey, Date.now());
       const reports = memoryReportsFor(slug);
       reports.push({ level, createdAt: Date.now() });
@@ -275,11 +316,9 @@ export function baselineForNow(): CrowdLevel {
 }
 
 // ---------------------------------------------------------------------------
-// Facilities (OpenStreetMap cache)
+// Facilities (Neon + Seed cache)
 // ---------------------------------------------------------------------------
 
-const FACILITY_FRESH_DAYS = 14;
-/** Below this many cached rows we treat the cache as thin and refresh from OSM. */
 const FACILITY_CACHE_MINIMUM = 6;
 
 export async function cachedFacilities(
@@ -288,21 +327,34 @@ export async function cachedFacilities(
   radius: number,
   kinds: string[],
 ): Promise<Facility[]> {
-  if (!hasDatabase()) return [];
+  if (!hasDatabase() || kinds.length === 0) return [];
   const bounds = bboxAround(lat, lng, radius);
   try {
-    const sql = getSql();
-    const rows = (await sql.query(
-      `select osm_id, kind, name, lat, lng, address, phone, source
-       from facilities
-       where lat between $1 and $2
-         and lng between $3 and $4
-         and kind in (${kinds.map((_, index) => `$${index + 5}`).join(", ")})
-         and updated_at > now() - interval '${FACILITY_FRESH_DAYS} days'
-       limit 400`,
-      [bounds.south, bounds.north, bounds.west, bounds.east, ...kinds],
-    )) as Facility[];
-    return rows;
+    let allRows: Facility[];
+    const mem = globalRepoCache.__nkpFacilitiesDbCache;
+    if (mem && mem.expiresAt > Date.now()) {
+      allRows = mem.rows;
+    } else {
+      const sql = getSql();
+      allRows = (await sql.query(
+        `select osm_id, kind, name, lat, lng, address, phone, source
+         from facilities
+         limit 400`,
+      )) as Facility[];
+      globalRepoCache.__nkpFacilitiesDbCache = {
+        rows: allRows,
+        expiresAt: Date.now() + FACILITIES_TTL_MS,
+      };
+    }
+
+    return allRows.filter(
+      (f) =>
+        kinds.includes(String(f.kind)) &&
+        f.lat >= bounds.south &&
+        f.lat <= bounds.north &&
+        f.lng >= bounds.west &&
+        f.lng <= bounds.east,
+    );
   } catch (error) {
     console.error("[repo] cachedFacilities failed:", (error as Error).message);
     return [];
@@ -336,6 +388,7 @@ export async function storeFacilities(facilities: Facility[]): Promise<void> {
         ],
       );
     }
+    globalRepoCache.__nkpFacilitiesDbCache = undefined;
   } catch (error) {
     console.error("[repo] storeFacilities failed:", (error as Error).message);
   }
