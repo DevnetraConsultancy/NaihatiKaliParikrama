@@ -38,24 +38,24 @@ function describe(step: OsrmStep): { en: string; bn: string } {
   const bnOn = name ? ` — ${name}` : "";
 
   const sides: Record<string, { en: string; bn: string }> = {
-    left: { en: "Turn left", bn: "বাঁ দিকে ঘুরুন" },
-    right: { en: "Turn right", bn: "ডান দিকে ঘুরুন" },
-    "slight left": { en: "Bear left", bn: "একটু বাঁ দিকে" },
-    "slight right": { en: "Bear right", bn: "একটু ডান দিকে" },
-    "sharp left": { en: "Sharp left", bn: "খুব বাঁ দিকে" },
-    "sharp right": { en: "Sharp right", bn: "খুব ডান দিকে" },
-    straight: { en: "Continue straight", bn: "সোজা এগিয়ে যান" },
-    uturn: { en: "Make a U-turn", bn: "ইউ-টার্ন নিন" },
+    left: { en: `Turn left${on}`, bn: `বাঁ দিকে ঘুরুন${bnOn}` },
+    right: { en: `Turn right${on}`, bn: `ডান দিকে ঘুরুন${bnOn}` },
+    "slight left": { en: `Bear left${on}`, bn: `একটু বাঁ দিকে যান${bnOn}` },
+    "slight right": { en: `Bear right${on}`, bn: `একটু ডান দিকে যান${bnOn}` },
+    "sharp left": { en: `Sharp left${on}`, bn: `খুব বাঁ দিকে ঘুরুন${bnOn}` },
+    "sharp right": { en: `Sharp right${on}`, bn: `খুব ডান দিকে ঘুরুন${bnOn}` },
+    straight: { en: `Continue straight${on}`, bn: `সোজা এগিয়ে যান${bnOn}` },
+    uturn: { en: `Make a U-turn${on}`, bn: `ইউ-টার্ন নিন${bnOn}` },
   };
 
   switch (type) {
     case "depart":
       return {
-        en: name ? `Start on ${name}` : "Start walking",
-        bn: name ? `${name} ধরে যাত্রা শুরু করুন` : "হাঁটা শুরু করুন",
+        en: name ? `Head out on ${name}` : "Start from your location",
+        bn: name ? `${name} ধরে যাত্রা শুরু করুন` : "আপনার অবস্থান থেকে যাত্রা শুরু করুন",
       };
     case "arrive":
-      return { en: "Arrive at the pandal", bn: "প্যান্ডেলে পৌঁছে গেছেন" };
+      return { en: "Arrive at destination", bn: "গন্তব্যে পৌঁছে গেছেন" };
     case "roundabout":
     case "rotary":
       return {
@@ -65,9 +65,9 @@ function describe(step: OsrmStep): { en: string; bn: string } {
     case "merge":
       return { en: `Merge${on}`, bn: `মিলিত হন${bnOn}` };
     case "fork":
-      return sides[modifier] ?? { en: "Keep going", bn: "এগিয়ে চলুন" };
+      return sides[modifier] ?? { en: `Keep going${on}`, bn: `এগিয়ে চলুন${bnOn}` };
     case "end of road":
-      return sides[modifier] ?? { en: "Turn", bn: "ঘুরুন" };
+      return sides[modifier] ?? { en: `Turn${on}`, bn: `ঘুরুন${bnOn}` };
     case "new name":
     case "continue":
       return {
@@ -75,7 +75,7 @@ function describe(step: OsrmStep): { en: string; bn: string } {
         bn: name ? `${name} ধরে এগিয়ে যান` : "সোজা এগিয়ে যান",
       };
     default:
-      return sides[modifier] ?? { en: "Continue", bn: "এগিয়ে চলুন" };
+      return sides[modifier] ?? { en: `Continue${on}`, bn: `এগিয়ে চলুন${bnOn}` };
   }
 }
 
@@ -96,10 +96,8 @@ function toSteps(route: OsrmRoute): RouteStep[] {
 }
 
 /**
- * Routes between two (or more) points using the free OSRM demo server.
- * Walking and driving profiles are both available; when OSRM cannot return a
- * walking route we still return the driving geometry with a walking ETA so the
- * user never sees a dead end.
+ * Routes between two (or more) points using free OSRM mirrors.
+ * Tries dedicated foot/car OSRM servers first, then standard OSRM fallback.
  */
 export async function fetchRoute(
   points: LatLng[],
@@ -108,21 +106,29 @@ export async function fetchRoute(
   if (points.length < 2) return null;
   const coordinates = points.map((point) => `${point.lng},${point.lat}`).join(";");
   const osrmProfile = profile === "foot" ? "foot" : "driving";
-  const url = `${osrmBase()}/route/v1/${osrmProfile}/${coordinates}?overview=full&geometries=geojson&steps=true`;
 
-  try {
-    const response = await fetch(url, {
-      headers: { "User-Agent": "NaihatiKaliParikrama/1.0" },
-      signal: AbortSignal.timeout(12_000),
-      cache: "no-store",
-    });
-    if (!response.ok) return null;
-    const payload = (await response.json()) as { code?: string; routes?: OsrmRoute[] };
-    if (payload.code !== "Ok" || !payload.routes?.length) return null;
-    return buildResult(payload.routes[0], profile, `osrm-${osrmProfile}`);
-  } catch {
-    return null;
+  const endpoints = [
+    `https://routing.openstreetmap.de/routed-${profile === "foot" ? "foot" : "car"}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=true`,
+    `${osrmBase()}/route/v1/${osrmProfile}/${coordinates}?overview=full&geometries=geojson&steps=true`,
+    `${osrmBase()}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=true`,
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const response = await fetch(url, {
+        headers: { "User-Agent": "NaihatiKaliParikrama/1.0" },
+        signal: AbortSignal.timeout(7_500),
+        cache: "no-store",
+      });
+      if (!response.ok) continue;
+      const payload = (await response.json()) as { code?: string; routes?: OsrmRoute[] };
+      if (payload.code !== "Ok" || !payload.routes?.length) continue;
+      return buildResult(payload.routes[0], profile, `osrm-${osrmProfile}`);
+    } catch {
+      // Try next mirror
+    }
   }
+  return null;
 }
 
 export function buildResult(
@@ -161,15 +167,34 @@ export function straightLineRoute(points: LatLng[], profile: "foot" | "car"): Ro
     distance += Math.sqrt(dLat * dLat + dLng * dLng);
   }
   const routed = distance * 1.25;
+  const durationMin = Math.max(1, Math.round(distance / (profile === "foot" ? 1.3 : 5.3) / 60));
   return {
     profile,
     distance_m: Math.round(routed),
-    duration_min: Math.max(1, Math.round(distance / (profile === "foot" ? 1.3 : 5.3) / 60)),
+    duration_min: durationMin,
     walk_min: walkMinutes(routed),
     drive_min: driveMinutes(routed),
     geometry: points.map((point) => [point.lat, point.lng] as [number, number]),
-    steps: [],
-    legs: [],
+    steps: [
+      {
+        instruction_en: "Head towards destination along the highlighted route",
+        instruction_bn: "চিহ্নিত পথ ধরে গন্তব্যের দিকে এগিয়ে যান",
+        distance: Math.round(routed),
+        duration: durationMin * 60,
+      },
+      {
+        instruction_en: "Arrive at destination",
+        instruction_bn: "গন্তব্যে পৌঁছে গেছেন",
+        distance: 0,
+        duration: 0,
+      },
+    ],
+    legs: [
+      {
+        distance_m: Math.round(routed),
+        duration_min: durationMin,
+      },
+    ],
     source: "straight-line-fallback",
   };
 }

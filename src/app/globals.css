@@ -116,8 +116,8 @@
   }
 
   .glass-strong {
-    background: rgb(12 10 24 / 0.86);
-    border: 1px solid rgb(255 255 255 / 0.12);
+    background: rgb(12 10 24 / 0.9);
+    border: 1px solid rgb(255 255 255 / 0.14);
     backdrop-filter: blur(24px) saturate(150%);
     -webkit-backdrop-filter: blur(24px) saturate(150%);
   }
@@ -201,24 +201,24 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Leaflet
+   Leaflet & Custom Maa Kali Map Pins
    ------------------------------------------------------------------------- */
 
 .leaflet-container {
-  background: #0a0818;
+  background: #0d111a;
   font-family: var(--font-sans);
   outline: none;
 }
 
-/* Night map: invert OpenStreetMap raster tiles so they read as a dark map. */
+/* Crisp dark mode filter for standard street tiles when night mode is enabled */
 .map-night .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(185deg) brightness(0.92) contrast(0.92) saturate(0.75);
+  filter: invert(1) hue-rotate(185deg) brightness(0.96) contrast(0.95) saturate(0.85);
 }
 
 .leaflet-control-attribution {
-  background: rgb(9 8 18 / 0.7) !important;
-  color: rgb(255 255 255 / 0.6) !important;
-  font-size: 10px !important;
+  background: rgb(9 8 18 / 0.72) !important;
+  color: rgb(255 255 255 / 0.55) !important;
+  font-size: 9.5px !important;
   padding: 1px 6px !important;
   border-radius: 8px 0 0 0;
 }
@@ -237,7 +237,7 @@
 .leaflet-popup-tip {
   background: rgb(15 13 30 / 0.96);
   color: rgb(255 255 255 / 0.92);
-  border: 1px solid rgb(255 255 255 / 0.12);
+  border: 1px solid rgb(255 255 255 / 0.14);
   border-radius: 16px;
   box-shadow: 0 20px 45px -20px rgb(0 0 0 / 0.9);
 }
@@ -252,112 +252,228 @@
   color: rgb(255 255 255 / 0.6) !important;
 }
 
-/* Marker: teardrop pin whose colour carries the pandal category. */
+.leaflet-tooltip.nkp-label-tooltip {
+  background: rgb(10 8 22 / 0.92);
+  color: #fff;
+  border: 1px solid rgb(245 199 106 / 0.45);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.65);
+  white-space: nowrap;
+}
+
+.leaflet-tooltip.nkp-label-tooltip::before {
+  display: none;
+}
+
+/* Custom Maa Kali Portrait Pin Marker */
+.nkp-pin-wrapper {
+  background: transparent;
+  border: none;
+}
+
 .nkp-pin {
   position: relative;
-  display: block;
-  width: 30px;
-  height: 38px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 42px;
+  height: 50px;
   transform: translateZ(0);
   transition: transform 0.25s var(--ease-liquid);
+  cursor: pointer;
 }
 
-.nkp-pin__body {
-  position: absolute;
-  inset: 0 auto auto 0;
-  width: 30px;
-  height: 30px;
-  border-radius: 50% 50% 50% 4px;
-  transform: rotate(-45deg);
-  border: 2px solid rgb(255 255 255 / 0.9);
-  box-shadow:
-    0 6px 16px -4px rgb(0 0 0 / 0.85),
-    0 0 0 3px rgb(0 0 0 / 0.25);
+.nkp-pin:hover {
+  transform: scale(1.14) translateY(-2px);
 }
 
-.nkp-pin__dot {
-  position: absolute;
-  top: 9px;
-  left: 9px;
-  width: 12px;
-  height: 12px;
+.nkp-pin__head {
+  position: relative;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
-  background: rgb(8 6 18 / 0.85);
-  display: grid;
-  place-items: center;
-  font-size: 7px;
-  font-weight: 700;
-  color: #fff;
+  background: #080612;
+  padding: 2px;
+  border: 2.5px solid var(--pin-accent, #f5c76a);
+  box-shadow:
+    0 6px 16px -2px rgb(0 0 0 / 0.9),
+    0 0 0 2px rgb(8 6 18 / 0.85),
+    0 0 14px var(--pin-glow, rgb(245 199 106 / 0.55));
+  overflow: hidden;
+  z-index: 2;
 }
 
-.nkp-pin--heritage .nkp-pin__body {
-  background: linear-gradient(150deg, #ffe6a8, var(--color-heritage));
+.nkp-pin__img {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  object-fit: cover;
+  transform: scale(1.16);
+  display: block;
+  pointer-events: none;
 }
 
-.nkp-pin--large .nkp-pin__body {
-  background: linear-gradient(150deg, #ffb3c2, var(--color-large));
+.nkp-pin__tip {
+  width: 0;
+  height: 0;
+  margin-top: -3px;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 11px solid var(--pin-accent, #f5c76a);
+  filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.85));
+  z-index: 1;
 }
 
-.nkp-pin--small .nkp-pin__body {
-  background: linear-gradient(150deg, #b6f6ec, var(--color-small));
+.nkp-pin--heritage {
+  --pin-accent: #f5c76a;
+  --pin-glow: rgb(245 199 106 / 0.65);
+}
+
+.nkp-pin--large {
+  --pin-accent: #ff5f7e;
+  --pin-glow: rgb(255 95 126 / 0.6);
+}
+
+.nkp-pin--small {
+  --pin-accent: #3dd6c0;
+  --pin-glow: rgb(61 214 192 / 0.55);
 }
 
 .nkp-pin--active {
-  transform: scale(1.22) translateY(-2px);
-  z-index: 900;
+  transform: scale(1.3) translateY(-5px) !important;
+  z-index: 1000;
 }
 
-.nkp-pin--active .nkp-pin__body {
+.nkp-pin--active .nkp-pin__head {
+  border-color: #ffe6a8;
   box-shadow:
-    0 0 0 4px rgb(245 199 106 / 0.35),
-    0 10px 22px -6px rgb(0 0 0 / 0.9);
+    0 0 0 4px rgb(245 199 106 / 0.45),
+    0 0 24px rgb(245 199 106 / 0.95),
+    0 12px 24px -4px rgb(0 0 0 / 0.95);
 }
 
-/* Facility markers are deliberately quieter than pandal pins. */
+.nkp-pin__pulse {
+  position: absolute;
+  top: -4px;
+  left: -3px;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: 2px solid #f5c76a;
+  animation: pulse-ring 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
+/* Emergency & Utility Facility Pins */
+.nkp-facility-wrapper {
+  background: transparent;
+  border: none;
+}
+
 .nkp-facility {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
   display: grid;
   place-items: center;
-  font-size: 13px;
-  line-height: 1;
-  background: rgb(13 11 26 / 0.92);
-  border: 1px solid rgb(255 255 255 / 0.25);
-  box-shadow: 0 4px 12px -4px rgb(0 0 0 / 0.8);
+  background: rgb(12 10 24 / 0.95);
+  border: 1.8px solid rgb(255 255 255 / 0.35);
+  box-shadow:
+    0 4px 12px -2px rgb(0 0 0 / 0.85),
+    0 0 0 2px rgb(0 0 0 / 0.4);
+  cursor: pointer;
+  transition: transform 0.22s var(--ease-liquid), border-color 0.22s var(--ease-liquid);
 }
 
-/* Live user position with a soft pulse. */
+.nkp-facility:hover {
+  transform: scale(1.18);
+  border-color: #f5c76a;
+}
+
+.nkp-facility--active {
+  transform: scale(1.32) !important;
+  border-color: #38bdf8;
+  box-shadow:
+    0 0 0 4px rgb(56 189 248 / 0.35),
+    0 8px 20px -2px rgb(0 0 0 / 0.9);
+}
+
+/* Live User GPS Position Beacon (Google Maps style) */
+.nkp-user-wrapper {
+  background: transparent;
+  border: none;
+}
+
 .nkp-user {
   position: relative;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
 }
 
 .nkp-user__dot {
-  position: absolute;
-  inset: 3px;
+  position: relative;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
-  background: #4dabff;
-  border: 2px solid #fff;
-  box-shadow: 0 0 12px rgb(77 171 255 / 0.9);
+  background: #2563eb;
+  border: 3px solid #ffffff;
+  box-shadow:
+    0 0 0 2px rgb(37 99 235 / 0.45),
+    0 0 16px rgb(59 130 246 / 0.95);
+  z-index: 2;
 }
 
 .nkp-user__pulse {
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  background: rgb(77 171 255 / 0.35);
-  animation: pulse-ring 2.4s ease-out infinite;
+  background: rgb(59 130 246 / 0.45);
+  animation: pulse-ring 2.2s ease-out infinite;
+  z-index: 1;
+}
+
+.nkp-user__badge {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2563eb;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  border: 1.5px solid #fff;
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.6);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Google Maps Animated Live Route Line */
+@keyframes route-dash-flow {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+
+.nkp-route-flow {
+  animation: route-dash-flow 1.1s linear infinite;
 }
 
 @keyframes pulse-ring {
   0% {
-    transform: scale(0.6);
-    opacity: 0.85;
+    transform: scale(0.65);
+    opacity: 0.9;
   }
-  70% {
-    transform: scale(2.3);
+  75% {
+    transform: scale(2.35);
     opacity: 0;
   }
   100% {
@@ -368,13 +484,16 @@
 @media (prefers-reduced-motion: reduce) {
   .liquid-card,
   .liquid-press,
-  .nkp-pin {
+  .nkp-pin,
+  .nkp-facility {
     transition: none;
   }
 
   .fade-in,
   .sheet-enter,
-  .nkp-user__pulse {
+  .nkp-user__pulse,
+  .nkp-pin__pulse,
+  .nkp-route-flow {
     animation: none;
   }
 }
@@ -389,7 +508,7 @@
   }
   20% {
     transform: scale(1.08, 0.94) rotate(-1.5deg);
-    opacity: 1;
+    opacity: 0.99;
   }
   40% {
     transform: scale(0.95, 1.05) rotate(2deg);

@@ -72,8 +72,7 @@ function parsePoints(raw: string | null): LatLng[] | null {
     const lat = Number(latText);
     const lng = Number(lngText);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    // Sanity bounds around West Bengal — catches swapped lat/lng input.
-    if (lat < 20 || lat > 28 || lng < 85 || lng > 91) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
     points.push({ lat, lng });
   }
   if (points.length < 2 || points.length > 12) return null;

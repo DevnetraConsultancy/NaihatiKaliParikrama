@@ -10,14 +10,8 @@ import {
 import type { Facility } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-// Overpass mirrors can take several seconds; give the function room to wait
-// instead of returning a gateway timeout to the visitor.
 export const maxDuration = 30;
 
-/**
- * Warm-instance cache. Dozens of visitors scanning the same QR code around the
- * same pandal share one Overpass lookup instead of each triggering their own.
- */
 const nearbyCache = globalThis as unknown as {
   __nkpNearbyCache?: Map<string, { value: unknown; expiresAt: number }>;
 };
@@ -42,22 +36,31 @@ function dedupe(facilities: Facility[]): Facility[] {
 /**
  * Nearby hospitals, police stations, toilets, food and transport.
  * Order of preference: Neon cache → live OpenStreetMap (Overpass) → bundled
- * seed list, so the Help screen keeps working even when OSM is rate limiting.
+ * seed list, so the Help & Map screens keep working even when OSM is rate limiting.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const lat = Number(url.searchParams.get("lat"));
-  const lng = Number(url.searchParams.get("lng"));
-  const radius = Math.min(Math.max(Number(url.searchParams.get("radius") ?? 1800), 300), 6000);
-  const requested = (url.searchParams.get("kinds") ?? "hospital,police,toilets,restaurant")
+  const rawLat = Number(url.searchParams.get("lat"));
+  const rawLng = Number(url.searchParams.get("lng"));
+  const inBengal =
+    Number.isFinite(rawLat) &&
+    Number.isFinite(rawLng) &&
+    rawLat >= 20 &&
+    rawLat <= 28 &&
+    rawLng >= 85 &&
+    rawLng <= 91;
+  // Always center facility search in Naihati if caller is outside West Bengal
+  const lat = inBengal ? rawLat : 22.8929;
+  const lng = inBengal ? rawLng : 88.422;
+  const radius = Math.min(Math.max(Number(url.searchParams.get("radius") ?? 3500), 300), 6000);
+  const requested = (
+    url.searchParams.get("kinds") ??
+    "hospital,police,toilets,pharmacy,railway,help,parking,atm,restaurant"
+  )
     .split(",")
     .map((kind) => kind.trim())
     .filter(Boolean)
     .slice(0, 12);
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < 20 || lat > 28 || lng < 85 || lng > 91) {
-    return NextResponse.json({ error: "invalid-location" }, { status: 400 });
-  }
 
   const networkKinds = requested.filter((kind) => OVERPASS_KINDS.includes(kind));
   const seedOnly = requested.filter((kind) => SEED_ONLY_KINDS.has(kind));
@@ -97,11 +100,11 @@ export async function GET(request: Request) {
   }
 
   if (facilities.length === 0) {
-    facilities = seedInRange;
+    facilities = seedInRange.length > 0
+      ? seedInRange
+      : bundledFacilities().filter((facility) => requested.includes(facility.kind));
     source = "seed";
   } else if (seedInRange.length > 0) {
-    // Fold in seeded landmarks (e.g. the two run-rate parking grounds) that OSM
-    // may not tag at all.
     facilities = dedupe([...facilities, ...seedInRange]);
   }
 
@@ -112,9 +115,14 @@ export async function GET(request: Request) {
     ]);
   }
 
+  const distanceOriginLat = Number.isFinite(rawLat) ? rawLat : lat;
+  const distanceOriginLng = Number.isFinite(rawLng) ? rawLng : lng;
+
   const withDistance = facilities
-    .map((facility) => ({ ...facility, distance: Math.round(haversine({ lat, lng }, facility)) }))
-    .filter((facility) => (facility.distance ?? 0) <= radius)
+    .map((facility) => ({
+      ...facility,
+      distance: Math.round(haversine({ lat: distanceOriginLat, lng: distanceOriginLng }, facility)),
+    }))
     .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0))
     .slice(0, 150);
 
@@ -126,8 +134,6 @@ export async function GET(request: Request) {
     time: new Date().toISOString(),
   };
 
-  // Only remember results that are not a bare seed fallback, so a temporary
-  // OpenStreetMap outage does not get pinned in the cache for ten minutes.
   if (source !== "seed") {
     if (cache.size > 200) cache.clear();
     cache.set(cacheKey, { value: payload, expiresAt: Date.now() + CACHE_TTL_MS });

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { usePathname } from "next/navigation";
 
 export function AnimatedDiya({
   size = 40,
@@ -166,58 +167,65 @@ export function AnimatedFirework({
  * and scrolling are never blocked.
  */
 export function FestiveAtmosphere() {
+  const pathname = usePathname();
+  const isMap = pathname?.startsWith("/map");
+
   return (
     <div
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-[400] overflow-hidden select-none"
     >
       {/* Top Left Corner: Hanging festive diya */}
-      <div className="absolute top-16 left-2 sm:left-6 opacity-85 hover:opacity-100 transition-opacity">
-        <AnimatedDiya size={42} glow />
+      <div className={`absolute ${isMap ? "top-14 left-1 scale-75 opacity-70" : "top-16 left-2 sm:left-6 opacity-85"} transition-opacity`}>
+        <AnimatedDiya size={isMap ? 32 : 42} glow />
       </div>
 
       {/* Top Right Corner: Hanging festive diya */}
-      <div className="absolute top-16 right-2 sm:right-6 opacity-85 hover:opacity-100 transition-opacity">
-        <AnimatedDiya size={42} glow />
+      <div className={`absolute ${isMap ? "top-14 right-1 scale-75 opacity-70" : "top-16 right-2 sm:right-6 opacity-85"} transition-opacity`}>
+        <AnimatedDiya size={isMap ? 32 : 42} glow />
       </div>
 
       {/* Corner Fireworks - Top Left background space */}
-      <div className="absolute -top-4 -left-4 sm:top-2 sm:left-12 opacity-75 scale-75 sm:scale-100">
+      <div className="absolute -top-4 -left-4 sm:top-2 sm:left-12 opacity-65 scale-75 sm:scale-100">
         <AnimatedFirework delay="0.2s" color="#f5c76a" />
       </div>
 
       {/* Corner Fireworks - Top Right background space */}
-      <div className="absolute -top-4 -right-4 sm:top-2 sm:right-12 opacity-75 scale-75 sm:scale-100">
+      <div className="absolute -top-4 -right-4 sm:top-2 sm:right-12 opacity-65 scale-75 sm:scale-100">
         <AnimatedFirework delay="1.8s" color="#ff5f7e" />
       </div>
 
-      {/* Mid Right background space (visible in widescreen/tablets) */}
-      <div className="hidden sm:block absolute top-1/3 -right-6 opacity-60">
-        <AnimatedFirework delay="3.4s" color="#3dd6c0" />
-      </div>
+      {!isMap ? (
+        <>
+          {/* Mid Right background space (visible in widescreen/tablets) */}
+          <div className="hidden sm:block absolute top-1/3 -right-6 opacity-60">
+            <AnimatedFirework delay="3.4s" color="#3dd6c0" />
+          </div>
 
-      {/* Mid Left background space (visible in widescreen/tablets) */}
-      <div className="hidden sm:block absolute top-2/3 -left-6 opacity-60">
-        <AnimatedFirework delay="2.6s" color="#f5c76a" />
-      </div>
+          {/* Mid Left background space (visible in widescreen/tablets) */}
+          <div className="hidden sm:block absolute top-2/3 -left-6 opacity-60">
+            <AnimatedFirework delay="2.6s" color="#f5c76a" />
+          </div>
 
-      {/* Bottom Left Corner: Floating auspicious lamp above the nav bar */}
-      <div className="absolute bottom-[calc(var(--nkp-bottom-ui)+10px)] left-2 sm:left-8 opacity-90">
-        <AnimatedDiya size={36} glow />
-      </div>
+          {/* Bottom Left Corner: Floating auspicious lamp above the nav bar */}
+          <div className="absolute bottom-[calc(var(--nkp-bottom-ui)+10px)] left-2 sm:left-8 opacity-90">
+            <AnimatedDiya size={36} glow />
+          </div>
 
-      {/* Bottom Right Corner: Floating auspicious lamp above the nav bar */}
-      <div className="absolute bottom-[calc(var(--nkp-bottom-ui)+10px)] right-2 sm:right-8 opacity-90">
-        <AnimatedDiya size={36} glow />
-      </div>
+          {/* Bottom Right Corner: Floating auspicious lamp above the nav bar */}
+          <div className="absolute bottom-[calc(var(--nkp-bottom-ui)+10px)] right-2 sm:right-8 opacity-90">
+            <AnimatedDiya size={36} glow />
+          </div>
 
-      {/* Subtle bottom fireworks */}
-      <div className="absolute bottom-[calc(var(--nkp-bottom-ui)+24px)] left-1/4 opacity-40 scale-75 sm:scale-90">
-        <AnimatedFirework delay="4.2s" color="#f5c76a" />
-      </div>
-      <div className="absolute bottom-[calc(var(--nkp-bottom-ui)+24px)] right-1/4 opacity-40 scale-75 sm:scale-90">
-        <AnimatedFirework delay="5.1s" color="#fcd34d" />
-      </div>
+          {/* Subtle bottom fireworks */}
+          <div className="absolute bottom-[calc(var(--nkp-bottom-ui)+24px)] left-1/4 opacity-40 scale-75 sm:scale-90">
+            <AnimatedFirework delay="4.2s" color="#f5c76a" />
+          </div>
+          <div className="absolute bottom-[calc(var(--nkp-bottom-ui)+24px)] right-1/4 opacity-40 scale-75 sm:scale-90">
+            <AnimatedFirework delay="5.1s" color="#fcd34d" />
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

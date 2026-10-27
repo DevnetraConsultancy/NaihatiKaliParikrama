@@ -2,17 +2,30 @@
 
 import {
   AtmIcon,
+  CarIcon,
+  CloseIcon,
+  CompassIcon,
   CrosshairIcon,
   HospitalIcon,
+  ListIcon,
   MapPinIcon,
+  MinusIcon,
+  MoonIcon,
   NavigationIcon,
   ParkingIcon,
   PharmacyIcon,
   PhoneIcon,
+  PlusIcon,
   PoliceIcon,
   RestaurantIcon,
+  SearchIcon,
+  ShareIcon,
+  SparklesIcon,
+  SunIcon,
+  TempleIcon,
   ToiletIcon,
   TrainIcon,
+  TurnArrowIcon,
   WalkIcon,
 } from "@/components/Icons";
 
@@ -26,38 +39,63 @@ import {
   CrowdReporter,
   CategoryTag,
   PandalRow,
-  RouteSummary,
 } from "@/components/map/bits";
-import { areaLevel, levelLabel, levelReason, type CrowdLevel } from "@/lib/crowd";
+import { levelLabel, levelReason, type CrowdLevel } from "@/lib/crowd";
 import { fetchNearby, fetchRoute, reportCrowd } from "@/lib/client-api";
-import { NAIHATI_CENTER, formatDistance, formatMinutes, nearestTo, roughWalkMinutes } from "@/lib/geo";
+import {
+  NAIHATI_CENTER,
+  formatDistance,
+  formatMinutes,
+  haversine,
+  nearestTo,
+  roughWalkMinutes,
+  driveMinutes,
+} from "@/lib/geo";
+import { facilityLabel } from "@/lib/i18n";
 import { matchesQuery, pandalHaystack } from "@/lib/search";
 import { useCrowdLevels, useGeolocation, usePandals } from "@/lib/hooks";
-import { PANDAL_CATEGORIES, type Facility, type LatLng, type PandalCategory, type RouteResult } from "@/lib/types";
+import {
+  PANDAL_CATEGORIES,
+  type Facility,
+  type LatLng,
+  type PandalCategory,
+  type RouteResult,
+} from "@/lib/types";
 
 const LeafletCanvas = dynamic(() => import("./LeafletCanvas"), {
   ssr: false,
   loading: () => (
     <div className="grid h-full w-full place-items-center bg-ink">
       <div className="flex flex-col items-center gap-3">
-        <span className="size-8 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
-        <p className="text-[13px] text-white/60">Loading Naihati map…</p>
+        <span className="size-9 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
+        <p className="text-[13px] font-medium text-white/70">Loading Naihati Live Map…</p>
       </div>
     </div>
   ),
 });
 
-function FacilityChipIcon({ kind }: { kind: string }) {
-  const size = 13;
+function FacilityChipIcon({ kind, size = 14 }: { kind: string; size?: number }) {
   switch (kind) {
-    case "hospital": return <HospitalIcon size={size} className="stroke-current" />;
-    case "police": return <PoliceIcon size={size} className="stroke-current" />;
-    case "toilets": return <ToiletIcon size={size} className="stroke-current" />;
-    case "restaurant": return <RestaurantIcon size={size} className="stroke-current" />;
-    case "railway": return <TrainIcon size={size} className="stroke-current" />;
-    case "atm": return <AtmIcon size={size} className="stroke-current" />;
-    case "parking": return <ParkingIcon size={size} className="stroke-current" />;
-    default: return <MapPinIcon size={size} className="stroke-current" />;
+    case "hospital":
+      return <HospitalIcon size={size} className="stroke-current" />;
+    case "police":
+      return <PoliceIcon size={size} className="stroke-current" />;
+    case "toilets":
+      return <ToiletIcon size={size} className="stroke-current" />;
+    case "pharmacy":
+      return <PharmacyIcon size={size} className="stroke-current" />;
+    case "railway":
+      return <TrainIcon size={size} className="stroke-current" />;
+    case "help":
+      return <PhoneIcon size={size} className="stroke-current" />;
+    case "restaurant":
+      return <RestaurantIcon size={size} className="stroke-current" />;
+    case "atm":
+      return <AtmIcon size={size} className="stroke-current" />;
+    case "parking":
+      return <ParkingIcon size={size} className="stroke-current" />;
+    default:
+      return <MapPinIcon size={size} className="stroke-current" />;
   }
 }
 
@@ -65,74 +103,92 @@ const FACILITY_CHIPS: { kind: string }[] = [
   { kind: "hospital" },
   { kind: "police" },
   { kind: "toilets" },
-  { kind: "restaurant" },
+  { kind: "pharmacy" },
   { kind: "railway" },
-  { kind: "atm" },
+  { kind: "help" },
   { kind: "parking" },
+  { kind: "atm" },
+  { kind: "restaurant" },
 ];
 
-const DEFAULT_FACILITY_KINDS = ["hospital", "police", "toilets"];
+// Show all core emergency & utility services on the map by default
+const DEFAULT_FACILITY_KINDS = [
+  "hospital",
+  "police",
+  "toilets",
+  "pharmacy",
+  "railway",
+  "help",
+  "parking",
+];
+
+function facilityKey(facility: Facility): string {
+  return facility.osm_id ?? `${facility.kind}:${facility.name}:${facility.lat.toFixed(5)},${facility.lng.toFixed(5)}`;
+}
+
+function stepDirection(text: string): "left" | "right" | "straight" {
+  const lower = text.toLowerCase();
+  if (lower.includes("left") || lower.includes("বাঁ")) return "left";
+  if (lower.includes("right") || lower.includes("ডান")) return "right";
+  return "straight";
+}
 
 export default function MapExperience() {
   const { lang, t } = useI18n();
-  const { pandals, loading, error } = usePandals();
+  const { pandals, loading } = usePandals();
   const geo = useGeolocation(true);
-  const { levels, setLevel, refresh } = useCrowdLevels(useMemo(() => pandals.map((p) => p.slug), [pandals]));
+  const { levels, setLevel, refresh } = useCrowdLevels(
+    useMemo(() => pandals.map((p) => p.slug), [pandals]),
+  );
 
   const mapRef = useRef<LeafletMap | null>(null);
+  const lastRoutedOriginRef = useRef<LatLng | null>(null);
+
   const [manualPosition, setManualPosition] = useState<LatLng | null>(null);
-  const [follow, setFollow] = useState(true);
+  const [follow, setFollow] = useState(false);
   const [nightMode, setNightMode] = useState(true);
   const [categories, setCategories] = useState<PandalCategory[]>([...PANDAL_CATEGORIES]);
   const [facilityKinds, setFacilityKinds] = useState<string[]>(DEFAULT_FACILITY_KINDS);
-  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [allFacilities, setAllFacilities] = useState<Facility[]>([]);
+
+  // Active pin selection: either a Pandal slug OR an Emergency Facility
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
-  const [sheetView, setSheetView] = useState<"next" | "list" | "detail">("next");
+  const [activeFacility, setActiveFacility] = useState<Facility | null>(null);
+  const [showFullDetails, setShowFullDetails] = useState(false);
+  const [showListDrawer, setShowListDrawer] = useState(false);
+  const [showStepsDrawer, setShowStepsDrawer] = useState(false);
   const [query, setQuery] = useState("");
+
+  // Live Navigation state
   const [route, setRoute] = useState<RouteResult | null>(null);
-  const [routeTargets, setRouteTargets] = useState<string[]>([]);
+  const [routeDestinationPoints, setRouteDestinationPoints] = useState<LatLng[]>([]);
+  const [routeTitle, setRouteTitle] = useState<{ bn: string; en: string } | null>(null);
   const [profile, setProfile] = useState<"foot" | "car">("foot");
   const [routeLoading, setRouteLoading] = useState(false);
   const [fitRoute, setFitRoute] = useState(false);
+
   const [toast, setToast] = useState<string | null>(null);
   const [reportBusy, setReportBusy] = useState(false);
-  const [watchNearby, setWatchNearby] = useState(DEFAULT_FACILITY_KINDS.join(","));
-  const [showIntro, setShowIntro] = useState(false);
 
-  const position = manualPosition ?? geo.position;
-  const origin: LatLng = position ?? NAIHATI_CENTER;
+  // Determine if user's real GPS is within Naihati area (within 15 km of Naihati Center)
+  const gpsInNaihati = useMemo(() => {
+    if (!geo.position) return false;
+    return haversine(geo.position, NAIHATI_CENTER) <= 15_000;
+  }, [geo.position]);
+
+  // Effective user location on the Naihati map:
+  // 1. Manual spot if set by user
+  // 2. Real GPS if inside Naihati (or if user explicitly enabled follow)
+  // 3. Naihati Center fallback so the user marker & routes always work seamlessly on Naihati's map
+  const origin: LatLng = useMemo(() => {
+    if (manualPosition) return manualPosition;
+    if (geo.position && (gpsInNaihati || follow)) return geo.position;
+    return NAIHATI_CENTER;
+  }, [manualPosition, geo.position, gpsInNaihati, follow]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
     setTimeout(() => setToast((current) => (current === message ? null : current)), 3200);
-  }, []);
-
-  // -------------------------------------------------- deep links (QR / share)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const pandalParam = params.get("pandal");
-    const stopsParam = params.get("stops");
-    const categoryParam = params.get("cat");
-    const facilityParam = params.get("facility");
-
-    if (categoryParam && PANDAL_CATEGORIES.includes(categoryParam as PandalCategory)) {
-      setCategories([categoryParam as PandalCategory]);
-    }
-    if (facilityParam) {
-      setFacilityKinds((current) => [...new Set([...current, facilityParam])]);
-    }
-    if (stopsParam) {
-      setRouteTargets(stopsParam.split(",").filter(Boolean));
-      setShowIntro(false);
-    } else if (pandalParam) {
-      setActiveSlug(pandalParam);
-      setSheetView("detail");
-      if (params.get("route") === "1") {
-        setRouteTargets([pandalParam]);
-      }
-    } else {
-      setShowIntro(true);
-    }
   }, []);
 
   // ----------------------------------------------------- crowd refresh cycle
@@ -140,77 +196,31 @@ export default function MapExperience() {
     void refresh();
   }, [refresh]);
 
-  // ------------------------------------------------------------ nearby places
+  // ---------------------------------------- Load all Naihati Emergency Pins
   useEffect(() => {
-    if (facilityKinds.length === 0) {
-      setFacilities([]);
-      return;
-    }
-    const key = `${origin.lat.toFixed(3)},${origin.lng.toFixed(3)}:${facilityKinds.join(",")}`;
-    if (key === watchNearby) return;
     let cancelled = false;
-    void fetchNearby(origin.lat, origin.lng, facilityKinds, 1800).then((payload) => {
+    const allKinds = FACILITY_CHIPS.map((c) => c.kind);
+    void fetchNearby(NAIHATI_CENTER.lat, NAIHATI_CENTER.lng, allKinds, 4500).then((payload) => {
       if (cancelled) return;
-      setFacilities(payload.facilities);
-      setWatchNearby(key);
+      setAllFacilities(payload.facilities);
     });
     return () => {
       cancelled = true;
     };
-  }, [origin.lat, origin.lng, facilityKinds, watchNearby]);
-
-  // Also pull facilities once on first load so safety layers are populated.
-  useEffect(() => {
-    if (watchNearby === DEFAULT_FACILITY_KINDS.join(",") && facilities.length === 0) {
-      void fetchNearby(origin.lat, origin.lng, facilityKinds, 1800).then((payload) =>
-        setFacilities(payload.facilities),
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ------------------------------------------------------------------ routing
-  const buildRoute = useCallback(
-    async (slugs: string[], mode: "foot" | "car") => {
-      const targets = pandals.filter((pandal) => slugs.includes(pandal.slug));
-      if (targets.length === 0) return;
-      setRouteLoading(true);
-      const points = [origin, ...targets.map((pandal) => ({ lat: pandal.lat, lng: pandal.lng }))];
-      const result = await fetchRoute(points, mode);
-      setRoute(result);
-      setFitRoute(true);
-      setRouteLoading(false);
-      // The sheet view is left alone on purpose: the route summary is rendered
-      // in both the "next" and "detail" views, so switching here would hide it.
-    },
-    [origin, pandals],
-  );
+  // Recompute facility distances relative to current user origin & filter by active kinds
+  const visibleFacilities = useMemo(() => {
+    return allFacilities
+      .filter((f) => facilityKinds.includes(f.kind))
+      .map((f) => ({
+        ...f,
+        distance: Math.round(haversine(origin, f)),
+      }))
+      .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+  }, [allFacilities, facilityKinds, origin]);
 
-  useEffect(() => {
-    if (routeTargets.length > 0 && pandals.length > 0) {
-      void buildRoute(routeTargets, profile);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeTargets, pandals.length]);
-
-  const handleProfileChange = useCallback(
-    (mode: "foot" | "car") => {
-      setProfile(mode);
-      if (routeTargets.length > 0) void buildRoute(routeTargets, mode);
-    },
-    [buildRoute, routeTargets],
-  );
-
-  const startRouteTo = useCallback(
-    (slug: string) => {
-      setActiveSlug(slug);
-      setRouteTargets([slug]);
-      void buildRoute([slug], profile);
-    },
-    [buildRoute, profile],
-  );
-
-  // --------------------------------------------------------------- derived UI
+  // --------------------------------------------------------------- Pandals
   const withCrowd = useMemo(
     () => pandals.map((pandal) => ({ ...pandal, crowd: levels[pandal.slug] })),
     [pandals, levels],
@@ -228,25 +238,145 @@ export default function MapExperience() {
     return ranked.filter((pandal) => matchesQuery(pandalHaystack(pandal), query));
   }, [ranked, query]);
 
-  const nextPandal = ranked[0];
+  const nextPandal = ranked[0] ?? null;
   const activePandal = activeSlug ? ranked.find((p) => p.slug === activeSlug) ?? null : null;
 
-  // "How busy is this area right now" — averaged over pandals within 900 m.
-  const area = useMemo(() => {
-    const local = levels
-      ? ranked
-          .filter((pandal) => pandal.distance_m <= 900 && pandal.crowd)
-          .map((pandal) => pandal.crowd!)
-      : [];
-    const summary = areaLevel(local, lang);
-    return { ...summary, reports: local.filter((info) => info.source === "live").length };
-  }, [ranked, levels, lang]);
-
-  const nearbyOfKind = useCallback(
-    (kind: string) => facilities.filter((facility) => facility.kind === kind).slice(0, 3),
-    [facilities],
+  // --------------------------------------------------------- Live Routing
+  const calculateLiveRoute = useCallback(
+    async (
+      startPoint: LatLng,
+      destinations: LatLng[],
+      mode: "foot" | "car",
+      shouldFitBounds: boolean,
+    ) => {
+      if (destinations.length === 0) return;
+      setRouteLoading(true);
+      const points = [startPoint, ...destinations];
+      const result = await fetchRoute(points, mode);
+      setRoute(result);
+      setFitRoute(shouldFitBounds);
+      lastRoutedOriginRef.current = startPoint;
+      setRouteLoading(false);
+    },
+    [],
   );
 
+  // Start Google Maps-style live directions to a Pandal
+  const startDirectionsToPandal = useCallback(
+    (slug: string) => {
+      const target = pandals.find((p) => p.slug === slug);
+      if (!target) return;
+      setActiveSlug(slug);
+      setActiveFacility(null);
+      setShowFullDetails(false);
+      setShowListDrawer(false);
+      const dest = [{ lat: target.lat, lng: target.lng }];
+      setRouteDestinationPoints(dest);
+      setRouteTitle({ bn: target.name_bn, en: target.name_en });
+      void calculateLiveRoute(origin, dest, profile, true);
+    },
+    [pandals, origin, profile, calculateLiveRoute],
+  );
+
+  // Start Google Maps-style live directions to an Emergency Facility
+  const startDirectionsToFacility = useCallback(
+    (facility: Facility) => {
+      setActiveFacility(facility);
+      setActiveSlug(null);
+      setShowFullDetails(false);
+      setShowListDrawer(false);
+      const dest = [{ lat: facility.lat, lng: facility.lng }];
+      setRouteDestinationPoints(dest);
+      setRouteTitle({ bn: facility.name, en: facility.name });
+      void calculateLiveRoute(origin, dest, profile, true);
+    },
+    [origin, profile, calculateLiveRoute],
+  );
+
+  // Stop / exit active navigation
+  const clearNavigation = useCallback(() => {
+    setRoute(null);
+    setRouteDestinationPoints([]);
+    setRouteTitle(null);
+    setFitRoute(false);
+    setShowStepsDrawer(false);
+    setFollow(false);
+  }, []);
+
+  // Switch between Walk and Drive mode during active route
+  const handleProfileChange = useCallback(
+    (mode: "foot" | "car") => {
+      setProfile(mode);
+      if (routeDestinationPoints.length > 0) {
+        void calculateLiveRoute(origin, routeDestinationPoints, mode, false);
+      }
+    },
+    [calculateLiveRoute, origin, routeDestinationPoints],
+  );
+
+  // Live GPS route auto-refresh as user walks (> 18 meters movement)
+  useEffect(() => {
+    if (routeDestinationPoints.length === 0 || !lastRoutedOriginRef.current) return;
+    const movedMeters = haversine(origin, lastRoutedOriginRef.current);
+    if (movedMeters >= 18) {
+      void calculateLiveRoute(origin, routeDestinationPoints, profile, false);
+    }
+  }, [origin, routeDestinationPoints, profile, calculateLiveRoute]);
+
+  // -------------------------------------------------- Deep links (QR / share)
+  const handledDeepLinkRef = useRef(false);
+  useEffect(() => {
+    if (handledDeepLinkRef.current || pandals.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const pandalParam = params.get("pandal");
+    const stopsParam = params.get("stops");
+    const categoryParam = params.get("cat");
+    const facilityParam = params.get("facility");
+
+    if (categoryParam && PANDAL_CATEGORIES.includes(categoryParam as PandalCategory)) {
+      setCategories([categoryParam as PandalCategory]);
+    }
+    if (facilityParam) {
+      setFacilityKinds((current) => [...new Set([...current, facilityParam])]);
+    }
+
+    if (stopsParam) {
+      const slugs = stopsParam.split(",").filter(Boolean);
+      const targets = slugs
+        .map((s) => pandals.find((p) => p.slug === s))
+        .filter((p): p is NonNullable<typeof p> => Boolean(p));
+      if (targets.length > 0) {
+        handledDeepLinkRef.current = true;
+        setActiveSlug(targets[0].slug);
+        const dests = targets.map((t) => ({ lat: t.lat, lng: t.lng }));
+        setRouteDestinationPoints(dests);
+        setRouteTitle({
+          bn:
+            targets.length > 1
+              ? `${targets.length}টি প্যান্ডেল পরিক্রমা`
+              : targets[0].name_bn,
+          en:
+            targets.length > 1
+              ? `${targets.length}-Stop Parikrama Route`
+              : targets[0].name_en,
+        });
+        void calculateLiveRoute(origin, dests, profile, true);
+      }
+    } else if (pandalParam) {
+      const target = pandals.find((p) => p.slug === pandalParam);
+      if (target) {
+        handledDeepLinkRef.current = true;
+        setActiveSlug(pandalParam);
+        if (params.get("route") === "1") {
+          startDirectionsToPandal(pandalParam);
+        }
+      }
+    } else {
+      handledDeepLinkRef.current = true;
+    }
+  }, [pandals, origin, profile, calculateLiveRoute, startDirectionsToPandal]);
+
+  // -------------------------------------------------- Crowd report & share
   const handleReport = useCallback(
     async (slug: string, level: 1 | 2 | 3 | 4) => {
       setReportBusy(true);
@@ -273,7 +403,7 @@ export default function MapExperience() {
           await navigator.share({ title, url });
           return;
         } catch {
-          // user dismissed — fall through to copying
+          // user dismissed
         }
       }
       await navigator.clipboard?.writeText(url);
@@ -284,7 +414,11 @@ export default function MapExperience() {
 
   const toggleCategory = (category: PandalCategory) => {
     setCategories((current) =>
-      current.includes(category) ? current.filter((item) => item !== category) : [...current, category],
+      current.includes(category)
+        ? current.length > 1
+          ? current.filter((item) => item !== category)
+          : current
+        : [...current, category],
     );
   };
 
@@ -294,36 +428,73 @@ export default function MapExperience() {
     );
   };
 
-  const locationBanner =
-    geo.status === "denied"
-      ? t("locationDenied")
-      : geo.status === "unavailable" || geo.status === "unsupported"
-        ? t("locationUnavailable")
-        : null;
+  // Current active navigation step
+  const primaryStep = route?.steps?.[0] ?? null;
+  const activeMinutes = route
+    ? profile === "foot"
+      ? route.walk_min
+      : route.drive_min
+    : 0;
+
+  const arrivalTimeText = useMemo(() => {
+    if (!route) return "";
+    const arrival = new Date(Date.now() + activeMinutes * 60_000);
+    return arrival.toLocaleTimeString(lang === "bn" ? "bn-IN" : "en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }, [route, activeMinutes, lang]);
 
   return (
-    <div className="fixed inset-0 z-0">
+    <div className="fixed inset-x-0 top-14 bottom-[var(--nkp-bottom-ui)] z-10 overflow-hidden bg-ink">
+      {/* ===================================================================
+          INTERACTIVE NAIHATI MAP CANVAS
+         =================================================================== */}
       <LeafletCanvas
         className="absolute inset-0 h-full w-full"
         pandals={visiblePandals}
-        facilities={facilities}
-        user={position ? { ...position, accuracy: manualPosition ? null : geo.accuracy } : null}
-        follow={follow && Boolean(position)}
+        facilities={visibleFacilities}
+        user={{
+          lat: origin.lat,
+          lng: origin.lng,
+          accuracy: manualPosition ? null : geo.accuracy,
+        }}
+        follow={follow}
         route={route}
         activeSlug={activeSlug}
-        center={origin}
+        activeFacilityKey={activeFacility ? facilityKey(activeFacility) : null}
+        center={NAIHATI_CENTER}
         zoom={15}
         nightMode={nightMode}
         fitRoute={fitRoute}
+        lang={lang}
         onSelectPandal={(slug) => {
           setActiveSlug(slug);
-          setSheetView("detail");
+          setActiveFacility(null);
+          setShowFullDetails(false);
+          setShowListDrawer(false);
+          setFitRoute(false);
+        }}
+        onSelectFacility={(facility) => {
+          setActiveFacility(facility);
+          setActiveSlug(null);
+          setShowFullDetails(false);
+          setShowListDrawer(false);
+          setFitRoute(false);
         }}
         onMapClick={(point) => {
-          if (!position) {
+          // Clicking empty map area closes open drawers or sets manual spot if desired
+          if (showListDrawer) {
+            setShowListDrawer(false);
+            return;
+          }
+          if (!geo.position) {
             setManualPosition(point);
-            setFollow(false);
-            showToast(lang === "bn" ? "আপনার জায়গা বসানো হয়েছে" : "Your spot is set here");
+            showToast(
+              lang === "bn"
+                ? "ম্যাপে আপনার অবস্থান আপডেট হয়েছে"
+                : "Your location on map updated",
+            );
           }
         }}
         onReady={(map) => {
@@ -331,150 +502,402 @@ export default function MapExperience() {
         }}
       />
 
-      {/* -------------------------------------------------- top control stack */}
-      <div className="pointer-events-none absolute inset-x-0 top-14 z-[600] flex flex-col gap-2 px-3 pt-2">
-        <div className="pointer-events-auto flex items-center gap-2">
-          <div className="glass flex h-11 flex-1 items-center gap-2 rounded-2xl px-3 shadow-lg">
-            <span className="text-[15px] opacity-70">🔍</span>
-            <input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                if (event.target.value.length > 0) setSheetView("list");
-              }}
-              placeholder={t("searchPlaceholder")}
-              className="h-full w-full bg-transparent text-[14px] text-white placeholder:text-white/40 focus:outline-none"
-              inputMode="search"
-            />
-            {query.length > 0 ? (
-              <button type="button" onClick={() => setQuery("")} className="text-white/50">
-                ✕
-              </button>
+      {/* ===================================================================
+          TOP BAR: EITHER GOOGLE MAPS LIVE NAVIGATION BANNER OR SEARCH/FILTERS
+         =================================================================== */}
+      {route ? (
+        <div className="pointer-events-none absolute inset-x-0 top-2 z-[600] px-2.5 sm:px-4">
+          <div className="pointer-events-auto mx-auto max-w-xl overflow-hidden rounded-3xl border border-emerald-400/35 bg-[#091e1a]/95 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center gap-3 px-3.5 py-3">
+              {/* Turn Maneuver Icon Box */}
+              <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-500 text-ink shadow-md">
+                <TurnArrowIcon
+                  size={24}
+                  direction={
+                    primaryStep
+                      ? stepDirection(primaryStep.instruction_en)
+                      : "straight"
+                  }
+                />
+              </div>
+
+              {/* Instruction & Destination */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-300 uppercase">
+                    <span className="size-1.5 animate-ping rounded-full bg-emerald-400" />
+                    {lang === "bn" ? "লাইভ নেভিগেশন" : "LIVE NAVIGATION"}
+                  </span>
+                  {primaryStep && primaryStep.distance > 0 ? (
+                    <span className="text-[12px] font-bold text-gold">
+                      {formatDistance(primaryStep.distance, lang)}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-0.5 truncate text-[14.5px] font-bold text-white">
+                  {primaryStep
+                    ? lang === "bn"
+                      ? primaryStep.instruction_bn
+                      : primaryStep.instruction_en
+                    : lang === "bn"
+                      ? "চিহ্নিত পথ অনুসরণ করুন"
+                      : "Follow highlighted route"}
+                </p>
+                {routeTitle ? (
+                  <p className="truncate text-[11.5px] text-white/65">
+                    {lang === "bn" ? "গন্তব্য: " : "To: "}
+                    <span className="font-medium text-gold">
+                      {lang === "bn" ? routeTitle.bn : routeTitle.en}
+                    </span>
+                  </p>
+                ) : null}
+              </div>
+
+              {/* Steps & Exit Buttons */}
+              <div className="flex shrink-0 items-center gap-1.5">
+                {route.steps.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowStepsDrawer((v) => !v)}
+                    className="liquid-press rounded-xl border border-white/15 bg-white/10 px-2.5 py-2 text-[11.5px] font-semibold text-white hover:bg-white/15"
+                  >
+                    {lang === "bn" ? "ধাপ" : "Steps"}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={clearNavigation}
+                  aria-label="Exit navigation"
+                  className="liquid-press grid size-9 place-items-center rounded-xl border border-rose-400/30 bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
+                >
+                  <CloseIcon size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Expandable Turn-by-Turn Steps Drawer */}
+            {showStepsDrawer && route.steps.length > 0 ? (
+              <div className="max-h-60 overflow-y-auto border-t border-white/10 bg-ink/90 px-3.5 py-2.5 no-scrollbar">
+                <ol className="space-y-2">
+                  {route.steps.slice(0, 30).map((step, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-start gap-2.5 rounded-xl bg-white/[0.04] px-2.5 py-2 text-[12px] text-white/85"
+                    >
+                      <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-emerald-500/25 text-[10px] font-bold text-emerald-300">
+                        {idx + 1}
+                      </span>
+                      <span className="flex-1">
+                        {lang === "bn" ? step.instruction_bn : step.instruction_en}
+                      </span>
+                      {step.distance > 10 ? (
+                        <span className="shrink-0 text-[11px] font-semibold text-gold">
+                          {formatDistance(step.distance, lang)}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              </div>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={() => setNightMode((value) => !value)}
-            title={t("nightMap")}
-            className="glass liquid-press grid size-11 shrink-0 place-items-center rounded-2xl text-[16px] shadow-lg"
-          >
-            {nightMode ? "🌙" : "☀️"}
-          </button>
         </div>
+      ) : (
+        <div className="pointer-events-none absolute inset-x-0 top-2 z-[600] flex flex-col gap-1.5 px-2.5 sm:px-4">
+          {/* Search & Day/Night Toggle */}
+          <div className="pointer-events-auto mx-auto flex w-full max-w-2xl items-center gap-2">
+            <div className="glass-strong flex h-10 flex-1 items-center gap-2 rounded-2xl px-3 shadow-lg">
+              <SearchIcon size={15} className="shrink-0 text-gold" />
+              <input
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  if (event.target.value.length > 0) setShowListDrawer(true);
+                }}
+                placeholder={t("searchPlaceholder")}
+                className="h-full w-full bg-transparent text-[13px] text-white placeholder:text-white/45 focus:outline-none"
+                inputMode="search"
+              />
+              {query.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="text-white/55 hover:text-white"
+                  aria-label="Clear search"
+                >
+                  <CloseIcon size={14} />
+                </button>
+              ) : null}
+            </div>
 
-        <div className="pointer-events-auto flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          {PANDAL_CATEGORIES.map((category) => (
-            <Chip
-              key={category}
-              active={categories.includes(category)}
-              onClick={() => toggleCategory(category)}
-              color={
-                category === "heritage"
-                  ? "var(--color-heritage)"
-                  : category === "large"
-                    ? "var(--color-large)"
-                    : "var(--color-small)"
-              }
+            <button
+              type="button"
+              onClick={() => setShowListDrawer((v) => !v)}
+              className="glass-strong liquid-press flex h-10 shrink-0 items-center gap-1.5 rounded-2xl px-3 text-[12px] font-semibold text-gold shadow-lg"
             >
-              {category === "heritage" ? "★" : category === "large" ? "▲" : "•"} {t(category)}
-            </Chip>
-          ))}
-          <span className="mx-1 w-px shrink-0 bg-white/15" />
-          {FACILITY_CHIPS.map((chip) => (
-            <Chip
-              key={chip.kind}
-              active={facilityKinds.includes(chip.kind)}
-              onClick={() => toggleFacility(chip.kind)}
-              title={t(chip.kind)}
+              <ListIcon size={15} />
+              <span>{lang === "bn" ? "তালিকা" : "List"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setNightMode((value) => !value)}
+              title={t("nightMap")}
+              className="glass-strong liquid-press grid size-10 shrink-0 place-items-center rounded-2xl text-gold shadow-lg"
             >
-              <FacilityChipIcon kind={chip.kind} />
-              <span className="hidden sm:inline">{t(chip.kind)}</span>
-            </Chip>
-          ))}
+              {nightMode ? <MoonIcon size={16} /> : <SunIcon size={16} />}
+            </button>
+          </div>
+
+          {/* Filter Chips: Pandal Categories + Emergency Services */}
+          <div className="pointer-events-auto mx-auto flex w-full max-w-2xl gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+            {PANDAL_CATEGORIES.map((category) => (
+              <Chip
+                key={category}
+                active={categories.includes(category)}
+                onClick={() => toggleCategory(category)}
+                color={
+                  category === "heritage"
+                    ? "var(--color-heritage)"
+                    : category === "large"
+                      ? "var(--color-large)"
+                      : "var(--color-small)"
+                }
+              >
+                <TempleIcon size={12} />
+                <span>{t(category)}</span>
+              </Chip>
+            ))}
+            <span className="mx-0.5 my-1 w-px shrink-0 bg-white/20" />
+            {FACILITY_CHIPS.map((chip) => (
+              <Chip
+                key={chip.kind}
+                active={facilityKinds.includes(chip.kind)}
+                onClick={() => toggleFacility(chip.kind)}
+                title={t(chip.kind)}
+              >
+                <FacilityChipIcon kind={chip.kind} size={13} />
+                <span>{t(chip.kind)}</span>
+              </Chip>
+            ))}
+          </div>
+
+          {/* Live GPS Status Pill */}
+          <div className="pointer-events-auto mx-auto flex w-full max-w-2xl items-center justify-between gap-2">
+            <div className="glass-strong inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] text-white/85 shadow-md">
+              <span
+                className={`size-2 rounded-full ${
+                  geo.status === "granted"
+                    ? "animate-pulse bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                    : "bg-sky-400"
+                }`}
+              />
+              <span>
+                {manualPosition
+                  ? lang === "bn"
+                    ? "আপনার নির্বাচিত অবস্থান সক্রিয়"
+                    : "Custom map spot active"
+                  : geo.status === "granted" && gpsInNaihati
+                    ? lang === "bn"
+                      ? "লাইভ জিপিএস সক্রিয় · আপনি ম্যাপে আছেন"
+                      : "Live GPS Active · Showing you on map"
+                    : geo.status === "granted" && !gpsInNaihati
+                      ? lang === "bn"
+                        ? "নৈহাটি ম্যাপ · আপনার অবস্থান স্টেশন মোডে"
+                        : "Viewing Naihati · Origin at Naihati Station"
+                      : lang === "bn"
+                        ? "নীল বিন্দু আপনার অবস্থান · যেকোনো পিনে ক্লিক করুন"
+                        : "Blue dot is you · Tap any pin for live route"}
+              </span>
+              {geo.status !== "granted" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    geo.request();
+                    showToast(t("locating"));
+                  }}
+                  className="ml-1 font-semibold text-gold underline"
+                >
+                  {lang === "bn" ? "জিপিএস চালু করুন" : "Enable GPS"}
+                </button>
+              ) : null}
+              {manualPosition ? (
+                <button
+                  type="button"
+                  onClick={() => setManualPosition(null)}
+                  className="ml-1 font-semibold text-gold underline"
+                >
+                  {lang === "bn" ? "রিসেট" : "Reset"}
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* --------------------------------------------------------- right FABs */}
-      <div className="absolute right-3 bottom-[calc(var(--nkp-bottom-ui)+0.75rem)] z-[600] flex flex-col gap-2">
+      {/* ===================================================================
+          FLOATING RIGHT MAP CONTROLS (RECENTER NAIHATI / MY GPS / ZOOM)
+         =================================================================== */}
+      <div className="pointer-events-auto absolute right-2.5 bottom-36 z-[600] flex flex-col gap-2 sm:right-4">
+        {/* Recenter on Naihati Main Map */}
         <button
           type="button"
           onClick={() => {
-            setFollow(true);
-            if (position && mapRef.current) {
-              mapRef.current.flyTo([position.lat, position.lng], 17, { duration: 0.7 });
+            setFollow(false);
+            setFitRoute(false);
+            mapRef.current?.flyTo([NAIHATI_CENTER.lat, NAIHATI_CENTER.lng], 15, {
+              duration: 0.7,
+            });
+            showToast(lang === "bn" ? "নৈহাটি ম্যাপ" : "Centered on Naihati");
+          }}
+          className="glass-strong liquid-press grid size-10 place-items-center rounded-2xl text-gold shadow-xl"
+          title={lang === "bn" ? "নৈহাটি ম্যাপ" : "Center on Naihati"}
+        >
+          <CompassIcon size={18} />
+        </button>
+
+        {/* Fly to User's Position */}
+        <button
+          type="button"
+          onClick={() => {
+            setFitRoute(false);
+            if (geo.position) {
+              setFollow(true);
+              mapRef.current?.flyTo([origin.lat, origin.lng], 17, { duration: 0.7 });
             } else {
               geo.request();
+              mapRef.current?.flyTo([origin.lat, origin.lng], 16, { duration: 0.7 });
               showToast(t("locating"));
             }
           }}
-          className="glass-strong liquid-press grid size-12 place-items-center rounded-2xl text-[18px] shadow-xl"
+          className={`glass-strong liquid-press grid size-10 place-items-center rounded-2xl shadow-xl ${
+            follow ? "border-sky-400 text-sky-400" : "text-white"
+          }`}
           title={t("recenter")}
         >
-          <CrosshairIcon size={18} className="stroke-white" />
+          <CrosshairIcon size={18} />
         </button>
+
         <button
           type="button"
           onClick={() => mapRef.current?.zoomIn()}
-          className="glass-strong liquid-press grid size-12 place-items-center rounded-2xl text-[18px] shadow-xl"
+          className="glass-strong liquid-press grid size-10 place-items-center rounded-2xl text-white shadow-xl"
+          aria-label="Zoom in"
         >
-          ＋
+          <PlusIcon size={17} />
         </button>
         <button
           type="button"
           onClick={() => mapRef.current?.zoomOut()}
-          className="glass-strong liquid-press grid size-12 place-items-center rounded-2xl text-[18px] shadow-xl"
+          className="glass-strong liquid-press grid size-10 place-items-center rounded-2xl text-white shadow-xl"
+          aria-label="Zoom out"
         >
-          －
+          <MinusIcon size={17} />
         </button>
       </div>
 
-      {/* ------------------------------------------------------- bottom sheet */}
-      <div className="absolute inset-x-0 z-[650] px-2 pb-2" style={{ bottom: "var(--nkp-bottom-ui)" }}>
-        <div className="glass-strong sheet-enter mx-auto max-h-[72dvh] w-full max-w-2xl overflow-hidden rounded-3xl shadow-2xl">
-          <button
-            type="button"
-            onClick={() => setSheetView(sheetView === "list" ? "next" : "list")}
-            className="flex w-full items-center justify-center py-2"
-            aria-label={sheetView === "list" ? t("nextPandal") : t("nearestPandals")}
-          >
-            <span className="h-1.5 w-12 rounded-full bg-white/25" />
-          </button>
-
-          <div className="max-h-[calc(72dvh-1.75rem)] overflow-y-auto overscroll-contain px-3 pb-4 no-scrollbar">
-            {loading ? (
-              <p className="py-6 text-center text-[13px] text-white/60">{t("loading")}</p>
-            ) : error ? (
-              <p className="py-6 text-center text-[13px] text-white/60">{t("loadFailed")}</p>
-            ) : sheetView === "detail" && activePandal ? (
-              <div className="fade-in space-y-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSheetView("next");
-                    setActiveSlug(null);
-                  }}
-                  className="text-[12px] text-gold"
-                >
-                  ← {t("nearestPandals")}
-                </button>
-
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <CategoryTag category={activePandal.category} lang={lang} />
-                    {activePandal.verified === false ? (
-                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10.5px] text-white/60">
-                        {t("approximatePin")}
+      {/* ===================================================================
+          BOTTOM UI:
+          1. GOOGLE MAPS LIVE NAVIGATION TRIP BAR (when route is active)
+          2. SELECTED PANDAL CARD (when a Kali pin is clicked)
+          3. SELECTED EMERGENCY FACILITY CARD (when a facility pin is clicked)
+          4. PANDAL LIST DRAWER (when user taps "List" or searches)
+          5. COMPACT FLOATING DOCK (default unobstructed map state)
+         =================================================================== */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[650] px-2.5 sm:px-4">
+        <div className="pointer-events-auto mx-auto w-full max-w-xl">
+          {route ? (
+            /* 1. GOOGLE MAPS LIVE NAVIGATION BOTTOM BAR */
+            <div className="glass-strong sheet-enter rounded-3xl border border-gold/35 p-3.5 shadow-2xl">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Live ETA & Distance */}
+                <div className="flex items-baseline gap-3">
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[22px] leading-none font-extrabold text-emerald-400">
+                        {formatMinutes(activeMinutes, lang)}
                       </span>
-                    ) : null}
-                    <CrowdPill info={activePandal.crowd} lang={lang} />
+                      <span className="text-[15px] font-bold text-white/90">
+                        ({formatDistance(route.distance_m, lang)})
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11.5px] text-white/60">
+                      {lang === "bn"
+                        ? `পৌঁছাবেন ~ ${arrivalTimeText} · লাইভ জিপিএস রুট`
+                        : `Arrive ~ ${arrivalTimeText} · Live GPS Route`}
+                    </p>
                   </div>
-                  <h2 className="mt-2 text-[19px] leading-tight font-semibold text-white">
+                </div>
+
+                {/* Walk / Drive Mode Switcher + End Route */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleProfileChange("foot")}
+                    className={`liquid-press flex items-center gap-1 rounded-xl px-2.5 py-2 text-[12px] font-semibold transition-colors ${
+                      profile === "foot"
+                        ? "bg-gold text-ink"
+                        : "border border-white/15 bg-white/5 text-white/75"
+                    }`}
+                  >
+                    <WalkIcon size={14} />
+                    <span>{lang === "bn" ? "হাঁটা" : "Walk"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleProfileChange("car")}
+                    className={`liquid-press flex items-center gap-1 rounded-xl px-2.5 py-2 text-[12px] font-semibold transition-colors ${
+                      profile === "car"
+                        ? "bg-gold text-ink"
+                        : "border border-white/15 bg-white/5 text-white/75"
+                    }`}
+                  >
+                    <CarIcon size={14} />
+                    <span>{lang === "bn" ? "গাড়ি" : "Drive"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFollow(true);
+                      mapRef.current?.flyTo([origin.lat, origin.lng], 17, {
+                        duration: 0.6,
+                      });
+                    }}
+                    className="liquid-press rounded-xl border border-sky-400/40 bg-sky-500/20 px-2.5 py-2 text-[12px] font-semibold text-sky-300"
+                    title="Follow my position"
+                  >
+                    {lang === "bn" ? "ফলো" : "Follow"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearNavigation}
+                    className="liquid-press rounded-xl bg-rose-500 px-3 py-2 text-[12px] font-bold text-white shadow-md"
+                  >
+                    {lang === "bn" ? "বন্ধ" : "Exit"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : activePandal ? (
+            /* 2. SELECTED PANDAL PIN ACTION CARD */
+            <div className="glass-strong sheet-enter max-h-[62dvh] overflow-y-auto rounded-3xl border border-gold/40 p-3.5 shadow-2xl no-scrollbar">
+              <div className="flex items-start gap-3">
+                {/* Maa Kali Pin Thumbnail */}
+                <img
+                  src="/kali-pin.jpg"
+                  alt={activePandal.name_en}
+                  className="size-13 shrink-0 rounded-full border-2 border-gold object-cover shadow-md"
+                />
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <CategoryTag category={activePandal.category} lang={lang} />
+                    <CrowdPill info={activePandal.crowd} lang={lang} size="sm" />
+                  </div>
+                  <h2 className="mt-1 truncate text-[17px] leading-snug font-bold text-white">
                     {lang === "bn" ? activePandal.name_bn : activePandal.name_en}
                   </h2>
-                  <p className="text-[12.5px] text-white/60">
-                    {lang === "bn" ? activePandal.name_en : activePandal.name_bn}
-                  </p>
-                  <p className="mt-1 text-[12.5px] text-white/70">
+                  <p className="truncate text-[12px] text-white/65">
                     {lang === "bn" ? activePandal.area_bn : activePandal.area_en}
                     {typeof activePandal.distance_m === "number"
                       ? ` · ${formatDistance(activePandal.distance_m, lang)} ${t("away")}`
@@ -482,132 +905,198 @@ export default function MapExperience() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
-                    <p className="text-[11px] text-white/50">{t("walk")}</p>
-                    <p className="text-[15px] font-semibold">
-                      {formatMinutes(
-                        roughWalkMinutes(activePandal.distance_m ?? 0, activePandal.crowd?.level ?? 1),
-                        lang,
-                      )}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
-                    <p className="text-[11px] text-white/50">{t("crowdNow")}</p>
-                    <p className="text-[15px] font-semibold">
-                      {activePandal.crowd
-                        ? levelLabel(activePandal.crowd.level as CrowdLevel, lang)
-                        : lang === "bn"
-                          ? "তথ্য নেই"
-                          : "No data"}
-                    </p>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveSlug(null);
+                    setShowFullDetails(false);
+                  }}
+                  aria-label="Close card"
+                  className="liquid-press grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-white/70 hover:text-white"
+                >
+                  <CloseIcon size={15} />
+                </button>
+              </div>
 
-                {activePandal.crowd ? (
-                  <p className="text-[11.5px] text-white/55">
-                    {levelReason(activePandal.crowd, lang)}
-                  </p>
-                ) : null}
-
-                {(lang === "bn" ? activePandal.description_bn : activePandal.description_en) ? (
-                  <p className="bn-text text-[13px] leading-relaxed text-white/75">
-                    {lang === "bn" ? activePandal.description_bn : activePandal.description_en}
-                  </p>
-                ) : null}
-
-                <dl className="grid grid-cols-1 gap-1.5 text-[12px] text-white/65 sm:grid-cols-2">
-                  {activePandal.landmark_en && (lang === "bn" ? activePandal.landmark_bn : true) ? (
-                    <div className="rounded-xl bg-white/[0.04] px-3 py-2">
-                      <dt className="text-[10.5px] text-white/45">{t("landmark")}</dt>
-                      <dd>{lang === "bn" ? activePandal.landmark_bn : activePandal.landmark_en}</dd>
-                    </div>
-                  ) : null}
-                  {activePandal.committee ? (
-                    <div className="rounded-xl bg-white/[0.04] px-3 py-2">
-                      <dt className="text-[10.5px] text-white/45">{t("committee")}</dt>
-                      <dd>{activePandal.committee}</dd>
-                    </div>
-                  ) : null}
-                  {activePandal.established ? (
-                    <div className="rounded-xl bg-white/[0.04] px-3 py-2">
-                      <dt className="text-[10.5px] text-white/45">{t("established")}</dt>
-                      <dd>{activePandal.established}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={routeLoading}
-                    onClick={() => startRouteTo(activePandal.slug)}
-                    className="liquid-press glow-gold flex-1 rounded-2xl bg-gold px-4 py-3 text-[13.5px] font-semibold text-ink disabled:opacity-60"
-                  >
-                    {routeLoading ? t("loading") : <span className="inline-flex items-center gap-1.5"><NavigationIcon size={14} className="stroke-ink" />{t("startRoute")}</span>}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void share(activePandal.slug)}
-                    className="liquid-press rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-[13.5px]"
-                  >
-                    ↗ {t("share")}
-                  </button>
-                </div>
-
-                {route && routeTargets.includes(activePandal.slug) ? (
-                  <RouteSummary
-                    route={route}
-                    lang={lang}
-                    profile={profile}
-                    onProfileChange={handleProfileChange}
-                    onClear={() => {
-                      setRoute(null);
-                      setRouteTargets([]);
-                      setFitRoute(false);
-                    }}
-                  />
-                ) : null}
-
-                <CrowdReporter
-                  lang={lang}
-                  busy={reportBusy}
-                  onReport={(level) => void handleReport(activePandal.slug, level)}
-                />
-
-                {nearbyOfKind("toilets").length > 0 || nearbyOfKind("hospital").length > 0 ? (
-                  <div className="space-y-1.5">
-                    <p className="text-[11.5px] font-medium text-white/60">{t("layerFacilities")}</p>
-                    {[...nearbyOfKind("toilets"), ...nearbyOfKind("hospital"), ...nearbyOfKind("police")].map(
-                      (facility) => (
-                        <p key={`${facility.kind}-${facility.name}`} className="text-[11.5px] text-white/60">
-                          <span className="inline-block mr-1"><FacilityChipIcon kind={facility.kind} /></span>
-                          {facility.name}
-                          {typeof facility.distance === "number"
-                            ? ` · ${formatDistance(facility.distance, lang)}`
-                            : ""}
-                        </p>
+              {/* Quick Walk / Drive Stats */}
+              <div className="mt-2.5 grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-2.5 py-1.5">
+                  <p className="text-[10px] text-white/50">{t("walk")}</p>
+                  <p className="text-[13.5px] font-bold text-white">
+                    {formatMinutes(
+                      roughWalkMinutes(
+                        activePandal.distance_m ?? 0,
+                        activePandal.crowd?.level ?? 1,
                       ),
+                      lang,
                     )}
-                  </div>
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-2.5 py-1.5">
+                  <p className="text-[10px] text-white/50">{t("drive")}</p>
+                  <p className="text-[13.5px] font-bold text-white">
+                    {formatMinutes(driveMinutes(activePandal.distance_m ?? 0), lang)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-2.5 py-1.5">
+                  <p className="text-[10px] text-white/50">{t("crowdNow")}</p>
+                  <p className="truncate text-[13px] font-bold text-gold">
+                    {activePandal.crowd
+                      ? levelLabel(activePandal.crowd.level as CrowdLevel, lang)
+                      : lang === "bn"
+                        ? "স্বাভাবিক"
+                        : "Normal"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Primary Action Buttons: Directions (Google Maps Style) + Details + Share */}
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={routeLoading}
+                  onClick={() => startDirectionsToPandal(activePandal.slug)}
+                  className="liquid-press glow-gold flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gold px-4 py-3 text-[14px] font-bold text-ink shadow-lg disabled:opacity-60"
+                >
+                  <NavigationIcon size={16} className="stroke-ink" />
+                  <span>
+                    {routeLoading
+                      ? t("loading")
+                      : lang === "bn"
+                        ? "ডিরেকশন · পথ দেখাও"
+                        : "Directions · Start Route"}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowFullDetails((v) => !v)}
+                  className="liquid-press rounded-2xl border border-white/15 bg-white/5 px-3.5 py-3 text-[12.5px] font-semibold text-white hover:bg-white/10"
+                >
+                  {showFullDetails
+                    ? lang === "bn"
+                      ? "সংক্ষেপ"
+                      : "Less"
+                    : t("details")}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void share(activePandal.slug)}
+                  aria-label={t("share")}
+                  className="liquid-press grid size-11 shrink-0 place-items-center rounded-2xl border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                >
+                  <ShareIcon size={16} />
+                </button>
+              </div>
+
+              {/* Expandable Details & Crowd Reporter */}
+              {showFullDetails ? (
+                <div className="fade-in mt-3 space-y-2.5 border-t border-white/10 pt-3">
+                  {(lang === "bn"
+                    ? activePandal.description_bn
+                    : activePandal.description_en) ? (
+                    <p className="bn-text text-[12.5px] leading-relaxed text-white/80">
+                      {lang === "bn"
+                        ? activePandal.description_bn
+                        : activePandal.description_en}
+                    </p>
+                  ) : null}
+
+                  {activePandal.crowd ? (
+                    <p className="text-[11px] text-white/55">
+                      {levelReason(activePandal.crowd, lang)}
+                    </p>
+                  ) : null}
+
+                  <CrowdReporter
+                    lang={lang}
+                    busy={reportBusy}
+                    onReport={(level) => void handleReport(activePandal.slug, level)}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : activeFacility ? (
+            /* 3. SELECTED EMERGENCY FACILITY PIN ACTION CARD */
+            <div className="glass-strong sheet-enter rounded-3xl border border-sky-400/40 p-3.5 shadow-2xl">
+              <div className="flex items-start gap-3">
+                <div className="grid size-12 shrink-0 place-items-center rounded-2xl border border-sky-400/30 bg-sky-500/15 text-sky-300">
+                  <FacilityChipIcon kind={activeFacility.kind} size={22} />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <span className="inline-block rounded-full bg-sky-500/20 px-2.5 py-0.5 text-[10.5px] font-semibold text-sky-300">
+                    {facilityLabel(String(activeFacility.kind), lang)}
+                  </span>
+                  <h2 className="mt-1 truncate text-[16.5px] font-bold text-white">
+                    {activeFacility.name}
+                  </h2>
+                  <p className="text-[12px] text-white/65">
+                    {typeof activeFacility.distance === "number"
+                      ? `${formatDistance(activeFacility.distance, lang)} ${t("away")}`
+                      : ""}
+                    {activeFacility.address ? ` · ${activeFacility.address}` : ""}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveFacility(null)}
+                  aria-label="Close card"
+                  className="liquid-press grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-white/70 hover:text-white"
+                >
+                  <CloseIcon size={15} />
+                </button>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={routeLoading}
+                  onClick={() => startDirectionsToFacility(activeFacility)}
+                  className="liquid-press glow-gold flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gold px-4 py-3 text-[14px] font-bold text-ink shadow-lg disabled:opacity-60"
+                >
+                  <NavigationIcon size={16} className="stroke-ink" />
+                  <span>
+                    {routeLoading
+                      ? t("loading")
+                      : lang === "bn"
+                        ? "ডিরেকশন · পথ দেখাও"
+                        : "Directions · Start Route"}
+                  </span>
+                </button>
+
+                {activeFacility.phone ? (
+                  <a
+                    href={`tel:${activeFacility.phone}`}
+                    className="liquid-press flex items-center gap-1.5 rounded-2xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-3 text-[13px] font-bold text-emerald-300"
+                  >
+                    <PhoneIcon size={15} />
+                    <span>{lang === "bn" ? "কল করুন" : "Call"}</span>
+                  </a>
                 ) : null}
               </div>
-            ) : sheetView === "list" ? (
-              <div className="fade-in space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-[12px] text-white/60">
-                    {t("showing")} {searchResults.length} {t("ofTotal")} {visiblePandals.length}{" "}
-                    {t("navPandals")}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setSheetView("next")}
-                    className="text-[12px] text-gold"
-                  >
-                    {t("nextPandal")} →
-                  </button>
-                </div>
-                {searchResults.slice(0, 40).map((pandal) => (
+            </div>
+          ) : showListDrawer ? (
+            /* 4. PANDAL LIST DRAWER (ONLY WHEN OPENED BY USER) */
+            <div className="glass-strong sheet-enter max-h-[60dvh] overflow-hidden rounded-3xl border border-white/15 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+                <p className="text-[12.5px] font-semibold text-white/85">
+                  {t("showing")} {searchResults.length} {t("ofTotal")}{" "}
+                  {visiblePandals.length} {t("navPandals")}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowListDrawer(false)}
+                  className="liquid-press flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11.5px] font-semibold text-gold"
+                >
+                  <CloseIcon size={13} />
+                  <span>{lang === "bn" ? "ম্যাপ দেখুন" : "View Map"}</span>
+                </button>
+              </div>
+              <div className="max-h-[calc(60dvh-2.75rem)] space-y-2 overflow-y-auto p-3 no-scrollbar">
+                {searchResults.map((pandal) => (
                   <PandalRow
                     key={pandal.slug}
                     pandal={pandal}
@@ -617,219 +1106,70 @@ export default function MapExperience() {
                     active={pandal.slug === activeSlug}
                     onClick={() => {
                       setActiveSlug(pandal.slug);
-                      setSheetView("detail");
+                      setShowListDrawer(false);
                     }}
                   />
                 ))}
-                {searchResults.length === 0 ? (
-                  <p className="py-6 text-center text-[13px] text-white/55">
-                    {lang === "bn" ? "কিছু পাওয়া যায়নি" : "Nothing matched"}
-                  </p>
-                ) : null}
               </div>
-            ) : (
-              <div className="fade-in space-y-3">
-                {locationBanner ? (
-                  <div className="rounded-2xl border border-gold/30 bg-gold/10 px-3 py-2.5">
-                    <p className="text-[12px] text-white/85">{locationBanner}</p>
+            </div>
+          ) : (
+            /* 5. DEFAULT COMPACT FLOATING DOCK (KEEPS 85% OF NAIHATI MAP VISIBLE!) */
+            <div className="glass-strong flex items-center justify-between gap-2.5 rounded-3xl border border-white/15 px-3.5 py-2.5 shadow-2xl">
+              {loading ? (
+                <p className="py-1 text-[12.5px] text-white/65">{t("loading")}</p>
+              ) : nextPandal ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSlug(nextPandal.slug)}
+                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                  >
+                    <img
+                      src="/kali-pin.jpg"
+                      alt=""
+                      className="size-10 shrink-0 rounded-full border border-gold object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold tracking-wider text-gold uppercase">
+                          {t("nextPandal")}
+                        </span>
+                        <span className="text-[11px] font-semibold text-white/70">
+                          · {formatDistance(nextPandal.distance_m ?? 0, lang)}
+                        </span>
+                      </div>
+                      <p className="truncate text-[14px] font-bold text-white">
+                        {lang === "bn" ? nextPandal.name_bn : nextPandal.name_en}
+                      </p>
+                    </div>
+                  </button>
+
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => {
-                        geo.request();
-                        showToast(t("locating"));
-                      }}
-                      className="mt-1.5 text-[12px] font-semibold text-gold"
+                      onClick={() => startDirectionsToPandal(nextPandal.slug)}
+                      className="liquid-press glow-gold flex items-center gap-1.5 rounded-2xl bg-gold px-3.5 py-2.5 text-[12.5px] font-bold text-ink"
                     >
-                      {t("enableLocation")} →
+                      <NavigationIcon size={14} className="stroke-ink" />
+                      <span>{lang === "bn" ? "পথ দেখাও" : "Directions"}</span>
                     </button>
                   </div>
-                ) : null}
-
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] text-white/50">{t("areaNow")}</p>
-                    <p className="text-[15px] font-semibold text-white">{area.label}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="size-2.5 rounded-full"
-                      style={{
-                        backgroundColor:
-                          area.level === 1
-                            ? "var(--color-crowd1)"
-                            : area.level === 2
-                              ? "var(--color-crowd2)"
-                              : area.level === 3
-                                ? "var(--color-crowd3)"
-                                : "var(--color-crowd4)",
-                      }}
-                    />
-                    <span className="text-[11.5px] text-white/60">
-                      {area.reports > 0 ? t("live") : t("estimate")}
-                    </span>
-                  </div>
-                </div>
-
-                {nextPandal ? (
-                  <div className="rounded-3xl border border-gold/30 bg-gradient-to-br from-gold/15 to-transparent p-3.5">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11.5px] font-semibold tracking-wide text-gold uppercase">
-                        {t("nextPandal")}
-                      </p>
-                      <CategoryTag category={nextPandal.category} lang={lang} />
-                    </div>
-                    <h2 className="mt-1.5 text-[18px] leading-tight font-semibold text-white">
-                      {lang === "bn" ? nextPandal.name_bn : nextPandal.name_en}
-                    </h2>
-                    <p className="text-[12px] text-white/60">
-                      {lang === "bn" ? nextPandal.area_bn : nextPandal.area_en}
-                    </p>
-                    <div className="mt-2.5 flex flex-wrap items-center gap-3">
-                      <span className="text-[13px] font-semibold text-gold">
-                        {formatDistance(nextPandal.distance_m ?? 0, lang)}
-                      </span>
-                      <span className="flex items-center gap-1 text-[12.5px] text-white/75">
-                        <WalkIcon size={13} className="stroke-white/75" />
-                        {formatMinutes(
-                          roughWalkMinutes(nextPandal.distance_m ?? 0, nextPandal.crowd?.level ?? 1),
-                          lang,
-                        )}
-                      </span>
-                      <CrowdPill info={nextPandal.crowd} lang={lang} />
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => startRouteTo(nextPandal.slug)}
-                        className="liquid-press glow-gold flex-1 rounded-2xl bg-gold px-3 py-2.5 text-[13px] font-semibold text-ink"
-                      >
-                        <span className="inline-flex items-center gap-1.5"><NavigationIcon size={14} className="stroke-ink" />{t("startRoute")}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveSlug(nextPandal.slug);
-                          setSheetView("detail");
-                        }}
-                        className="liquid-press rounded-2xl border border-white/15 bg-white/5 px-3 py-2.5 text-[13px]"
-                      >
-                        {t("details")}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="py-3 text-center text-[13px] text-white/55">
-                    {lang === "bn" ? "ফিল্টার অনুযায়ী প্যান্ডেল নেই" : "No pandals match the filters"}
-                  </p>
-                )}
-
-                {route ? (
-                  <RouteSummary
-                    route={route}
-                    lang={lang}
-                    profile={profile}
-                    onProfileChange={handleProfileChange}
-                    onClear={() => {
-                      setRoute(null);
-                      setRouteTargets([]);
-                      setFitRoute(false);
-                    }}
-                  />
-                ) : null}
-
-                {ranked.length > 1 ? (
-                  <div>
-                    <p className="mb-1.5 text-[12px] font-medium text-white/60">{t("nearestPandals")}</p>
-                    <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 no-scrollbar">
-                      {ranked.slice(1, 9).map((pandal) => (
-                        <button
-                          key={pandal.slug}
-                          type="button"
-                          onClick={() => {
-                            setActiveSlug(pandal.slug);
-                            setSheetView("detail");
-                          }}
-                          className="liquid-card w-40 shrink-0 rounded-2xl border border-white/10 bg-white/[0.05] p-2.5 text-left"
-                        >
-                          <CategoryTag category={pandal.category} lang={lang} />
-                          <p className="mt-1 line-clamp-2 text-[12.5px] font-medium text-white/90">
-                            {lang === "bn" ? pandal.name_bn : pandal.name_en}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-white/55">
-                            {formatDistance(pandal.distance_m ?? 0, lang)}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {facilityKinds.length > 0 ? (
-                  <div>
-                    <p className="mb-1.5 text-[12px] font-medium text-white/60">
-                      {t("layerFacilities")}
-                      {facilities.length > 0 ? ` · ${facilities.length} ${t("nearbyCount")}` : ""}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {facilityKinds.map((kind) => {
-                        const nearest = nearbyOfKind(kind)[0];
-                        return (
-                          <span
-                            key={kind}
-                            className="rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-[11.5px] text-white/70"
-                          >
-                            <span className="inline-flex items-center gap-1"><FacilityChipIcon kind={kind} /> {t(kind)}</span>
-                            {nearest?.distance
-                              ? ` · ${formatDistance(nearest.distance, lang)}`
-                              : ""}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-
-                {showIntro ? (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
-                    <p className="text-[12px] font-medium text-white/80">
-                      {lang === "bn" ? "কীভাবে ব্যবহার করবেন" : "How to use this"}
-                    </p>
-                    <ol className="mt-1.5 space-y-1 text-[11.5px] text-white/65">
-                      <li>
-                        1. {lang === "bn" ? "লোকেশন পারমিশন দিন" : "Allow location permission"}
-                      </li>
-                      <li>
-                        2.{" "}
-                        {lang === "bn"
-                          ? "নীল বিন্দু আপনার জায়গা, সোনালি পিন প্যান্ডেল"
-                          : "The blue dot is you, gold pins are pandals"}
-                      </li>
-                      <li>
-                        3.{" "}
-                        {lang === "bn"
-                          ? "«পথ দেখাও» চাপলে হাঁটার রাস্তা ও সময় পাবেন"
-                          : "Tap Show route for the walking path and ETA"}
-                      </li>
-                      <li>
-                        4.{" "}
-                        {lang === "bn"
-                          ? "ভিড়ের রিপোর্ট দিলে সবাই উপকৃত হয়"
-                          : "Report the crowd to help everyone else"}
-                      </li>
-                    </ol>
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
+                </>
+              ) : (
+                <p className="py-1 text-[12.5px] text-white/65">
+                  {lang === "bn"
+                    ? "যেকোনো প্যান্ডেল বা জরুরি পিনে ক্লিক করুন"
+                    : "Tap any pandal or emergency pin on the map"}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Toast Notification */}
       {toast ? (
-        <div
-          className="glass-strong fade-in absolute inset-x-0 z-[700] mx-auto w-fit max-w-[92%] rounded-2xl px-4 py-2.5 text-[13px] shadow-xl"
-          style={{ bottom: "calc(var(--nkp-bottom-ui) + 18px)" }}
-        >
+        <div className="glass-strong fade-in pointer-events-none absolute inset-x-0 bottom-24 z-[700] mx-auto w-fit max-w-[92%] rounded-2xl border border-gold/30 px-4 py-2 text-[12.5px] font-medium text-white shadow-xl">
           {toast}
         </div>
       ) : null}
