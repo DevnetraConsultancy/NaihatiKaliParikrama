@@ -77,7 +77,7 @@ export function isAdminRequest(request: Request): boolean {
 export function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return true; // same-origin fetches from the app itself
-  const host = request.headers.get("host");
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
   try {
     const originHost = new URL(origin).host;
     return originHost === host;

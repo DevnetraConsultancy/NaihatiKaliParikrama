@@ -30,3 +30,5 @@ yarn-error.log*
 
 # local verification screenshots (not app assets)
 artifacts/
+.env*
+.freebuff/
