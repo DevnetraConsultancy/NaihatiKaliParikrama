@@ -20,7 +20,7 @@ it can be deployed and handed to volunteers.
 | Piece | Choice | Why |
 | --- | --- | --- |
 | Framework | Next.js 16 (App Router) + React 19 + TypeScript | Deploys to Vercel with zero config |
-| Styling | Tailwind CSS v4 | Small CSS, easy theming |
+| Styling | Tailwind CSS v4 with an alpana (আলপনা) motif set and a sindoor→indigo→gold palette | Small CSS, easy theming |
 | Map | Leaflet + OpenStreetMap raster tiles | No API key, no billing |
 | Routing / ETA | OSRM (walking + driving profiles) | Free, open source, no key |
 | Facilities | OpenStreetMap Overpass API, cached in Postgres | Live data without hand-maintaining every toilet |
@@ -168,6 +168,14 @@ scripts/                 db-migrate.mjs, db-seed.mjs
 
 - `npx tsc --noEmit` — clean.
 - `npm run build` — 9 pages and 8 API routes, production build clean.
+- **Real browser run** (Playwright + Chromium, 412×915 Android viewport, geolocation granted) on `/map`:
+  28 pandal pins, 7 nearby facility icons, live user dot, 32 map tiles, the “next pandal” card, the EN/BN
+  toggle switching to the English UI, a walking route drawn on the map with “হেঁটে (ভিড় ধরে) · ১১০ মি”
+  plus directions and the walk/drive switch, the pandal detail sheet, and a crowd report that changed the
+  reason line to “ভিড়ের রিপোর্ট দিয়েছেন”. No console or page errors.
+- **Preview-origin fix verified**: a dev-resource request carrying the preview hostname's `Origin` returns
+  404 (allowed) rather than the cross-origin block, and the server logs zero “Blocked cross-origin”
+  warnings — this was the cause of a dead language toggle and a map that never appeared in the preview.
 - Live HTTP checks against `next dev`: every page returns 200 with Bengali copy; `/api/health` reports 28
   pandals; category filter, tolerant search (`boromaa` → Boro Maa) and nearest-first ordering work.
 - Crowd model verified per IST hour: 15:00 → level 1, 18:30 → 2, 20:00 → 3, 23:00 → 4, 01:00 → 3,
@@ -176,6 +184,8 @@ scripts/                 db-migrate.mjs, db-seed.mjs
   `404`, bad level `400`.
 - Routing: live OSRM walking route (station → Naihati State General Hospital, 2 339 m / 30 min, 8 steps,
   bilingual directions), cached repeats, multi-stop legs, and validation rejects swapped coordinates.
+- Facility lookups answer in **8 ms** once Overpass has been found unreachable (11 s for the first attempt,
+  then a 5-minute cooldown serves the bundled landmark list instantly instead of retrying every mirror).
 - Admin gate: `401` without a cookie, `401` on a wrong password, session cookie on success, `503` for
   writes while `DATABASE_URL` is absent.
 - SQL verified against an in-memory Postgres: schema applies and is idempotent, 28 pandals seed, admin
@@ -184,9 +194,11 @@ scripts/                 db-migrate.mjs, db-seed.mjs
 
 ### Not verified here (needs you)
 
-- **Browser rendering on a real phone.** Visual layout, Leaflet tiles, geolocation permission flow and
-  hydration could not be exercised in this environment. Open the preview and check the map, the permission
-  prompt and the bottom sheet.
+- **A real handset.** The browser run above covers layout, hydration, the permission flow and interactions
+  at an Android viewport, but not a physical phone's touch behaviour, GPS accuracy or battery.
+- **The preview hostname in a browser.** The ✦`style.dev` domain is HSTS-preloaded, so Chromium here forces
+  https and cannot open the plain-HTTP dev server; the fix was therefore verified at the HTTP level instead
+  (above). Reload the preview to confirm the toggle and map on your own browser.
 - **The live Overpass/OSM facility path.** Every Overpass mirror was unreachable from the build environment,
   so the app correctly served the bundled landmark list instead. On a normal network you should see
   `source: "osm"` from `/api/nearby`.

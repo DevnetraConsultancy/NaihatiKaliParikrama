@@ -9,7 +9,21 @@ export const OVERPASS_ENDPOINTS = [
 ];
 
 /** Per-endpoint budget. Overpass mirrors can be slow under load. */
-const ENDPOINT_TIMEOUT_MS = 9000;
+const ENDPOINT_TIMEOUT_MS = 6000;
+/** Never spend longer than this in total across mirrors, so a visitor is not
+ * left waiting while four busy mirrors time out one after another. */
+const TOTAL_BUDGET_MS = 11_000;
+/** After every mirror fails, skip Overpass entirely for a while and serve the
+ * bundled landmark list instantly instead of making the next visitor wait. */
+const FAILURE_COOLDOWN_MS = 5 * 60 * 1000;
+
+const osmState = globalThis as unknown as { __nkpOsmFailureAt?: number; __nkpOsmOkAt?: number };
+
+/** True while Overpass is known to be down, so callers can skip the wait. */
+export function osmIsCoolingDown(): boolean {
+  const failedAt = osmState.__nkpOsmFailureAt ?? 0;
+  return failedAt > 0 && Date.now() - failedAt < FAILURE_COOLDOWN_MS;
+}
 
 /**
  * OpenStreetMap tags for each facility category we surface around a pandal.
@@ -102,11 +116,17 @@ export async function fetchFacilitiesFromOsm(
   lng: number,
   radius: number,
   kinds: string[],
+  options: { force?: boolean } = {},
 ): Promise<Facility[]> {
   if (kinds.length === 0) return [];
+  if (!options.force && osmIsCoolingDown()) return [];
+
   const query = buildQuery(lat, lng, radius, kinds);
+  const startedAt = Date.now();
 
   for (const endpoint of OVERPASS_ENDPOINTS) {
+    const remaining = TOTAL_BUDGET_MS - (Date.now() - startedAt);
+    if (remaining <= 1500) break;
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -117,7 +137,7 @@ export async function fetchFacilitiesFromOsm(
           "User-Agent": "NaihatiKaliParikrama/1.0 (community Kali Puja map for Naihati)",
         },
         body: new URLSearchParams({ data: query }).toString(),
-        signal: AbortSignal.timeout(ENDPOINT_TIMEOUT_MS),
+        signal: AbortSignal.timeout(Math.min(ENDPOINT_TIMEOUT_MS, remaining)),
         cache: "no-store",
       });
       // Mirrors answer with an HTML gateway page when they are busy, so the
@@ -127,11 +147,19 @@ export async function fetchFacilitiesFromOsm(
       if (!contentType.includes("json")) continue;
       const payload = (await response.json()) as { elements?: OverpassElement[] };
       const facilities = normaliseElements(payload.elements ?? []);
-      if (facilities.length > 0) return facilities;
+      if (facilities.length > 0) {
+        osmState.__nkpOsmFailureAt = 0;
+        osmState.__nkpOsmOkAt = Date.now();
+        return facilities;
+      }
     } catch {
       // try the next mirror
     }
   }
+
+  // Every mirror failed: cool down so the next request answers instantly from
+  // the bundled landmark list (or the Postgres cache) instead of waiting again.
+  osmState.__nkpOsmFailureAt = Date.now();
   return [];
 }
 

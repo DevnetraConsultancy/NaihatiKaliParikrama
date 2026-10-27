@@ -40,8 +40,17 @@
     height: 100%;
   }
 
+  /* Bengali festival palette: sindoor maroon glow, gold lamplight, deep indigo
+     night sky — the background the whole app sits on. */
   body {
     background-color: var(--color-ink);
+    background-image:
+      radial-gradient(1100px 520px at 12% -8%, rgb(122 16 48 / 0.55) 0%, transparent 62%),
+      radial-gradient(900px 460px at 96% 4%, rgb(245 199 106 / 0.2) 0%, transparent 58%),
+      radial-gradient(760px 620px at 50% 108%, rgb(88 28 135 / 0.34) 0%, transparent 64%),
+      linear-gradient(180deg, #140730 0%, #0b0820 42%, #07060e 100%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     color: rgb(255 255 255 / 0.92);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -61,6 +70,39 @@
 }
 
 @layer components {
+  /* Alpana rice-paste band drawn across the header, over a sindoor-to-indigo wash. */
+  .header-alpona {
+    background-image:
+      linear-gradient(90deg, rgb(37 10 36 / 0.92) 0%, rgb(92 15 48 / 0.85) 45%, rgb(37 10 36 / 0.92) 100%),
+      url("/alpona-band.svg");
+    background-size:
+      100% 100%,
+      220px 56px;
+    background-repeat: no-repeat, repeat-x;
+    background-position: center center, center bottom;
+  }
+
+  /* Thin festive rule under the header: gold → turmeric → sindoor → indigo. */
+  .festive-rule {
+    background: linear-gradient(
+      90deg,
+      #f5c76a 0%,
+      #e8a33d 22%,
+      #c8102e 48%,
+      #8e1a3f 66%,
+      #6d28d9 84%,
+      #f5c76a 100%
+    );
+  }
+
+  /* Bengali art gradient for display text (festival headline treatment). */
+  .bengali-gradient-text {
+    background-image: linear-gradient(96deg, #ffe6a8 0%, #f5c76a 32%, #f0836a 62%, #e8a33d 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
   .glass {
     background: linear-gradient(
       160deg,

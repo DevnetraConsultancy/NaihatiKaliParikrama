@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { AlponaCorner, AlponaDivider, AlponaMedallion } from "@/components/Alpona";
 import { useI18n } from "@/components/LanguageProvider";
 import { CategoryTag, CrowdPill } from "@/components/map/bits";
 import { useCrowdLevels, useGeolocation, usePandals } from "@/lib/hooks";
@@ -34,10 +35,15 @@ export default function HomeContent() {
           className="pointer-events-none absolute -top-24 -right-16 size-56 rounded-full opacity-40 blur-3xl"
           style={{ background: "radial-gradient(circle, #f5c76a 0%, transparent 70%)" }}
         />
+        <AlponaCorner className="pointer-events-none absolute -top-2 -right-2 h-36 w-36" />
+        <AlponaMedallion
+          size={150}
+          className="pointer-events-none absolute -right-10 -bottom-14 opacity-[0.13]"
+        />
         <p className="text-[11.5px] font-semibold tracking-[0.18em] text-gold uppercase">
           Naihati · Kartik Amavasya
         </p>
-        <h1 className="bn-text mt-2 text-[27px] leading-[1.2] font-bold text-white">
+        <h1 className="bengali-gradient-text bn-text mt-2 text-[27px] leading-[1.25] font-bold">
           {lang === "bn" ? (
             <>
               নৈহাটির কালীপূজা
@@ -79,7 +85,9 @@ export default function HomeContent() {
           </Link>
         </div>
 
-        <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
+        <AlponaDivider className="mt-4" />
+
+        <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
           <div className="rounded-2xl bg-white/[0.06] px-2 py-2.5">
             <dt className="text-[10.5px] text-white/50">{t("navPandals")}</dt>
             <dd className="text-[19px] font-bold text-white">
@@ -112,7 +120,9 @@ export default function HomeContent() {
         </div>
       ) : null}
 
-      <section className="mt-6">
+      <AlponaDivider className="mt-6" />
+
+      <section className="mt-4">
         <h2 className="text-[15px] font-semibold text-white">{t("layerPuja")}</h2>
         <p className="text-[12px] text-white/55">
           {lang === "bn"
@@ -252,7 +262,9 @@ export default function HomeContent() {
         </Link>
       </section>
 
-      <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+      <AlponaDivider className="mt-6" />
+
+      <section className="mt-4 rounded-3xl border border-white/10 bg-white/[0.03] p-4">
         <h2 className="text-[14px] font-semibold text-white">{t("dataCredit")}</h2>
         <ul className="mt-2 space-y-1.5 text-[11.5px] text-white/60">
           <li>

@@ -147,7 +147,8 @@ export default function MapExperience() {
       setRoute(result);
       setFitRoute(true);
       setRouteLoading(false);
-      if (result) setSheetView("detail");
+      // The sheet view is left alone on purpose: the route summary is rendered
+      // in both the "next" and "detail" views, so switching here would hide it.
     },
     [origin, pandals],
   );
@@ -520,6 +521,20 @@ export default function MapExperience() {
                     ↗ {t("share")}
                   </button>
                 </div>
+
+                {route && routeTargets.includes(activePandal.slug) ? (
+                  <RouteSummary
+                    route={route}
+                    lang={lang}
+                    profile={profile}
+                    onProfileChange={handleProfileChange}
+                    onClear={() => {
+                      setRoute(null);
+                      setRouteTargets([]);
+                      setFitRoute(false);
+                    }}
+                  />
+                ) : null}
 
                 <CrowdReporter
                   lang={lang}
