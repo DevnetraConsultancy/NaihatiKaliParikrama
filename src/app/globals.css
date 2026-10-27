@@ -19,8 +19,6 @@
 }
 
 :root {
-  /* Height reserved for the bottom navigation on phones, so floating panels
-     never hide behind it. */
   --nkp-bottom-ui: 76px;
 }
 
@@ -40,14 +38,11 @@
     height: 100%;
   }
 
-  /* Bengali festival palette: sindoor maroon glow, gold lamplight, deep indigo
-     night sky — the background the whole app sits on. */
   body {
     background-color: var(--color-ink);
     background-image:
-      radial-gradient(1100px 520px at 12% -8%, rgb(122 16 48 / 0.55) 0%, transparent 62%),
-      radial-gradient(900px 460px at 96% 4%, rgb(245 199 106 / 0.2) 0%, transparent 58%),
-      radial-gradient(760px 620px at 50% 108%, rgb(88 28 135 / 0.34) 0%, transparent 64%),
+      radial-gradient(1100px 520px at 12% -8%, rgb(122 16 48 / 0.45) 0%, transparent 62%),
+      radial-gradient(900px 460px at 96% 4%, rgb(245 199 106 / 0.16) 0%, transparent 58%),
       linear-gradient(180deg, #140730 0%, #0b0820 42%, #07060e 100%);
     background-attachment: fixed;
     background-repeat: no-repeat;
@@ -57,7 +52,6 @@
     overscroll-behavior-y: none;
   }
 
-  /* Bengali text needs a touch more line height to breathe. */
   [data-lang="bn"] .bn-text,
   html[lang="bn"] .bn-text {
     line-height: 1.7;
@@ -70,32 +64,49 @@
 }
 
 @layer components {
-  /* Alpana rice-paste band drawn across the header, over a sindoor-to-indigo wash. */
+  /* Dynamic moving alpona vine ribbon across the top header bar */
   .header-alpona {
     background-image:
-      linear-gradient(90deg, rgb(37 10 36 / 0.92) 0%, rgb(92 15 48 / 0.85) 45%, rgb(37 10 36 / 0.92) 100%),
-      url("/alpona-band.svg");
+      url("/alpona-band.svg"),
+      linear-gradient(90deg, rgb(30 8 28 / 0.95) 0%, rgb(72 12 38 / 0.90) 45%, rgb(30 8 28 / 0.95) 100%);
     background-size:
-      100% 100%,
-      220px 56px;
-    background-repeat: no-repeat, repeat-x;
-    background-position: center center, center bottom;
+      220px 56px,
+      100% 100%;
+    background-repeat: repeat-x, no-repeat;
+    background-position: 0px bottom, center center;
+    animation: alpona-glide 14s linear infinite;
+    will-change: background-position;
   }
 
-  /* Thin festive rule under the header: gold → turmeric → sindoor → indigo. */
+  @keyframes alpona-glide {
+    from {
+      background-position: 0px bottom, center center;
+    }
+    to {
+      background-position: 220px bottom, center center;
+    }
+  }
+
+  /* Shimmering festive edge under the header */
   .festive-rule {
     background: linear-gradient(
       90deg,
       #f5c76a 0%,
-      #e8a33d 22%,
-      #c8102e 48%,
-      #8e1a3f 66%,
-      #6d28d9 84%,
+      #e8a33d 20%,
+      #c8102e 40%,
+      #8e1a3f 60%,
+      #6d28d9 80%,
       #f5c76a 100%
     );
+    background-size: 200% 100%;
+    animation: festive-shimmer 7s linear infinite;
   }
 
-  /* Bengali art gradient for display text (festival headline treatment). */
+  @keyframes festive-shimmer {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+  }
+
   .bengali-gradient-text {
     background-image: linear-gradient(96deg, #ffe6a8 0%, #f5c76a 32%, #f0836a 62%, #e8a33d 100%);
     -webkit-background-clip: text;
@@ -103,36 +114,36 @@
     color: transparent;
   }
 
+  /* Lightweight, GPU-friendly glass panels */
   .glass {
-    background: linear-gradient(
-      160deg,
-      rgb(255 255 255 / 0.09) 0%,
-      rgb(255 255 255 / 0.04) 45%,
-      rgb(12 10 24 / 0.55) 100%
-    );
+    background: rgb(15 13 30 / 0.88);
     border: 1px solid rgb(255 255 255 / 0.1);
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
   }
 
   .glass-strong {
-    background: rgb(12 10 24 / 0.9);
+    background: rgb(12 10 24 / 0.96);
     border: 1px solid rgb(255 255 255 / 0.14);
-    backdrop-filter: blur(24px) saturate(150%);
-    -webkit-backdrop-filter: blur(24px) saturate(150%);
+  }
+
+  @supports (backdrop-filter: blur(8px)) {
+    .glass {
+      background: rgb(15 13 30 / 0.78);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .glass-strong {
+      background: rgb(12 10 24 / 0.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
   }
 
   .glow-gold {
-    box-shadow:
-      0 0 0 1px rgb(245 199 106 / 0.35),
-      0 18px 50px -18px rgb(245 199 106 / 0.55);
+    box-shadow: 0 4px 20px -4px rgb(245 199 106 / 0.5);
   }
 
   .liquid-press {
-    transition:
-      transform 0.22s var(--ease-liquid),
-      background-color 0.22s var(--ease-liquid),
-      opacity 0.22s var(--ease-liquid);
+    transition: transform 0.16s ease-out, opacity 0.16s ease-out;
   }
 
   .liquid-press:active {
@@ -140,10 +151,7 @@
   }
 
   .liquid-card {
-    transition:
-      transform 0.3s var(--ease-liquid),
-      box-shadow 0.3s var(--ease-liquid),
-      border-color 0.3s var(--ease-liquid);
+    transition: transform 0.2s ease-out, border-color 0.2s ease-out;
   }
 
   .liquid-card:hover {
@@ -168,14 +176,13 @@
     padding-top: max(env(safe-area-inset-top), 0.25rem);
   }
 
-  /* Sheet that slides up from the bottom of the map on phones. */
   .sheet-enter {
-    animation: sheet-up 0.35s var(--ease-liquid);
+    animation: sheet-up 0.25s ease-out;
   }
 
   @keyframes sheet-up {
     from {
-      transform: translateY(16%);
+      transform: translateY(12%);
       opacity: 0;
     }
     to {
@@ -185,13 +192,13 @@
   }
 
   .fade-in {
-    animation: fade-in 0.35s var(--ease-liquid);
+    animation: fade-in 0.2s ease-out;
   }
 
   @keyframes fade-in {
     from {
       opacity: 0;
-      transform: translateY(6px);
+      transform: translateY(4px);
     }
     to {
       opacity: 1;
@@ -201,30 +208,28 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Leaflet & Custom Maa Kali Map Pins
+   Leaflet & Mobile Lightweight Marker Styles
    ------------------------------------------------------------------------- */
 
 .leaflet-container {
-  background: #0d111a;
+  background: #f0ede5;
   font-family: var(--font-sans);
   outline: none;
+  touch-action: pan-x pan-y;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-/* Crisp dark mode filter for standard street tiles when night mode is enabled */
+.map-night .leaflet-container {
+  background: #0d111a;
+}
+
 .map-night .leaflet-tile-pane {
   filter: invert(1) hue-rotate(185deg) brightness(0.96) contrast(0.95) saturate(0.85);
 }
 
 .leaflet-control-attribution {
-  background: rgb(9 8 18 / 0.72) !important;
-  color: rgb(255 255 255 / 0.55) !important;
-  font-size: 9.5px !important;
-  padding: 1px 6px !important;
-  border-radius: 8px 0 0 0;
-}
-
-.leaflet-control-attribution a {
-  color: var(--color-gold) !important;
+  display: none !important;
 }
 
 .leaflet-bar,
@@ -233,42 +238,7 @@
   box-shadow: none;
 }
 
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip {
-  background: rgb(15 13 30 / 0.96);
-  color: rgb(255 255 255 / 0.92);
-  border: 1px solid rgb(255 255 255 / 0.14);
-  border-radius: 16px;
-  box-shadow: 0 20px 45px -20px rgb(0 0 0 / 0.9);
-}
-
-.leaflet-popup-content {
-  margin: 10px 12px;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.leaflet-popup-close-button {
-  color: rgb(255 255 255 / 0.6) !important;
-}
-
-.leaflet-tooltip.nkp-label-tooltip {
-  background: rgb(10 8 22 / 0.92);
-  color: #fff;
-  border: 1px solid rgb(245 199 106 / 0.45);
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  box-shadow: 0 6px 16px rgb(0 0 0 / 0.65);
-  white-space: nowrap;
-}
-
-.leaflet-tooltip.nkp-label-tooltip::before {
-  display: none;
-}
-
-/* Custom Maa Kali Portrait Pin Marker */
+/* Lightweight Hardware-Accelerated Maa Kali Pin Marker */
 .nkp-pin-wrapper {
   background: transparent;
   border: none;
@@ -279,29 +249,28 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 42px;
-  height: 50px;
-  transform: translateZ(0);
-  transition: transform 0.25s var(--ease-liquid);
+  width: 36px;
+  height: 44px;
   cursor: pointer;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transition: transform 0.15s ease-out;
 }
 
 .nkp-pin:hover {
-  transform: scale(1.14) translateY(-2px);
+  transform: scale(1.12) translateY(-2px);
 }
 
 .nkp-pin__head {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   background: #080612;
-  padding: 2px;
-  border: 2.5px solid var(--pin-accent, #f5c76a);
-  box-shadow:
-    0 6px 16px -2px rgb(0 0 0 / 0.9),
-    0 0 0 2px rgb(8 6 18 / 0.85),
-    0 0 14px var(--pin-glow, rgb(245 199 106 / 0.55));
+  border: 2px solid var(--pin-accent, #f5c76a);
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.85);
   overflow: hidden;
   z-index: 2;
 }
@@ -311,7 +280,7 @@
   height: 100%;
   border-radius: 999px;
   object-fit: cover;
-  transform: scale(1.16);
+  transform: scale(1.15);
   display: block;
   pointer-events: none;
 }
@@ -319,52 +288,35 @@
 .nkp-pin__tip {
   width: 0;
   height: 0;
-  margin-top: -3px;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-top: 11px solid var(--pin-accent, #f5c76a);
-  filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.85));
+  margin-top: -2px;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 9px solid var(--pin-accent, #f5c76a);
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.8));
   z-index: 1;
 }
 
 .nkp-pin--heritage {
   --pin-accent: #f5c76a;
-  --pin-glow: rgb(245 199 106 / 0.65);
 }
 
 .nkp-pin--large {
   --pin-accent: #ff5f7e;
-  --pin-glow: rgb(255 95 126 / 0.6);
 }
 
 .nkp-pin--small {
   --pin-accent: #3dd6c0;
-  --pin-glow: rgb(61 214 192 / 0.55);
 }
 
 .nkp-pin--active {
-  transform: scale(1.3) translateY(-5px) !important;
+  transform: scale(1.22) translateY(-3px) !important;
   z-index: 1000;
 }
 
 .nkp-pin--active .nkp-pin__head {
   border-color: #ffe6a8;
-  box-shadow:
-    0 0 0 4px rgb(245 199 106 / 0.45),
-    0 0 24px rgb(245 199 106 / 0.95),
-    0 12px 24px -4px rgb(0 0 0 / 0.95);
-}
-
-.nkp-pin__pulse {
-  position: absolute;
-  top: -4px;
-  left: -3px;
-  width: 48px;
-  height: 48px;
-  border-radius: 999px;
-  border: 2px solid #f5c76a;
-  animation: pulse-ring 1.8s ease-out infinite;
-  pointer-events: none;
+  border-width: 2.5px;
+  box-shadow: 0 0 0 3px rgb(245 199 106 / 0.5), 0 6px 16px rgb(0 0 0 / 0.95);
 }
 
 /* Emergency & Utility Facility Pins */
@@ -374,34 +326,32 @@
 }
 
 .nkp-facility {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
   display: grid;
   place-items: center;
   background: rgb(12 10 24 / 0.95);
-  border: 1.8px solid rgb(255 255 255 / 0.35);
-  box-shadow:
-    0 4px 12px -2px rgb(0 0 0 / 0.85),
-    0 0 0 2px rgb(0 0 0 / 0.4);
+  border: 1.5px solid rgb(255 255 255 / 0.35);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.7);
   cursor: pointer;
-  transition: transform 0.22s var(--ease-liquid), border-color 0.22s var(--ease-liquid);
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  transition: transform 0.15s ease-out;
 }
 
 .nkp-facility:hover {
-  transform: scale(1.18);
-  border-color: #f5c76a;
+  transform: scale(1.15);
 }
 
 .nkp-facility--active {
-  transform: scale(1.32) !important;
+  transform: scale(1.25) !important;
   border-color: #38bdf8;
-  box-shadow:
-    0 0 0 4px rgb(56 189 248 / 0.35),
-    0 8px 20px -2px rgb(0 0 0 / 0.9);
+  border-width: 2px;
+  box-shadow: 0 0 0 3px rgb(56 189 248 / 0.4);
 }
 
-/* Live User GPS Position Beacon (Google Maps style) */
+/* User Location Beacon (Static, Clean Google Maps Style without Continuous Repaint Loop) */
 .nkp-user-wrapper {
   background: transparent;
   border: none;
@@ -409,179 +359,57 @@
 
 .nkp-user {
   position: relative;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
 }
 
 .nkp-user__dot {
   position: relative;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   background: #2563eb;
-  border: 3px solid #ffffff;
+  border: 2.5px solid #ffffff;
   box-shadow:
-    0 0 0 2px rgb(37 99 235 / 0.45),
-    0 0 16px rgb(59 130 246 / 0.95);
+    0 0 0 4px rgb(37 99 235 / 0.3),
+    0 2px 8px rgb(0 0 0 / 0.6);
   z-index: 2;
-}
-
-.nkp-user__pulse {
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  background: rgb(59 130 246 / 0.45);
-  animation: pulse-ring 2.2s ease-out infinite;
-  z-index: 1;
 }
 
 .nkp-user__badge {
   position: absolute;
-  bottom: 30px;
+  bottom: 26px;
   left: 50%;
   transform: translateX(-50%);
   background: #2563eb;
   color: #fff;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  padding: 1.5px 6px;
+  padding: 1px 5px;
   border-radius: 999px;
-  border: 1.5px solid #fff;
-  box-shadow: 0 4px 10px rgb(0 0 0 / 0.6);
+  border: 1px solid #fff;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.6);
   white-space: nowrap;
   pointer-events: none;
   z-index: 3;
-}
-
-/* Google Maps Animated Live Route Line */
-@keyframes route-dash-flow {
-  to {
-    stroke-dashoffset: -28;
-  }
-}
-
-.nkp-route-flow {
-  animation: route-dash-flow 1.1s linear infinite;
-}
-
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.65);
-    opacity: 0.9;
-  }
-  75% {
-    transform: scale(2.35);
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .liquid-card,
   .liquid-press,
   .nkp-pin,
-  .nkp-facility {
+  .nkp-facility,
+  .header-alpona,
+  .festive-rule {
+    animation: none;
     transition: none;
   }
 
   .fade-in,
-  .sheet-enter,
-  .nkp-user__pulse,
-  .nkp-pin__pulse,
-  .nkp-route-flow {
+  .sheet-enter {
     animation: none;
   }
-}
-
-/* -------------------------------------------------------------------------
-   Festive Kali Puja & Diwali Animations (Diyas, Candles & Fireworks)
-   ------------------------------------------------------------------------- */
-@keyframes flame-dance {
-  0%, 100% {
-    transform: scale(1) rotate(0deg);
-    opacity: 0.95;
-  }
-  20% {
-    transform: scale(1.08, 0.94) rotate(-1.5deg);
-    opacity: 0.99;
-  }
-  40% {
-    transform: scale(0.95, 1.05) rotate(2deg);
-    opacity: 0.9;
-  }
-  60% {
-    transform: scale(1.05, 0.98) rotate(-1deg);
-    opacity: 1;
-  }
-  80% {
-    transform: scale(0.98, 1.02) rotate(1deg);
-    opacity: 0.92;
-  }
-}
-
-.animate-flame {
-  animation: flame-dance 1.4s ease-in-out infinite alternate;
-  transform-origin: 24px 24px;
-}
-
-@keyframes diya-halo {
-  0%, 100% {
-    transform: translate(-50%, 0) scale(1);
-    opacity: 0.55;
-  }
-  50% {
-    transform: translate(-50%, 0) scale(1.2);
-    opacity: 0.85;
-  }
-}
-
-.animate-diya-glow {
-  animation: diya-halo 2.2s ease-in-out infinite;
-}
-
-@keyframes firework-burst {
-  0% {
-    transform: scale(0.15);
-    opacity: 0;
-  }
-  15% {
-    transform: scale(0.65);
-    opacity: 0.95;
-  }
-  40% {
-    transform: scale(1.1);
-    opacity: 0.8;
-  }
-  70% {
-    transform: scale(1.25);
-    opacity: 0.2;
-  }
-  85%, 100% {
-    transform: scale(1.3);
-    opacity: 0;
-  }
-}
-
-.animate-firework {
-  animation: firework-burst 4.5s cubic-bezier(0.15, 0.85, 0.35, 1) infinite;
-}
-
-@keyframes ember-sparkle {
-  0%, 100% {
-    opacity: 0.3;
-    stroke-dashoffset: 0;
-  }
-  50% {
-    opacity: 1;
-    stroke-dashoffset: 4;
-  }
-}
-
-.animate-sparkle {
-  animation: ember-sparkle 1.8s ease-in-out infinite;
 }

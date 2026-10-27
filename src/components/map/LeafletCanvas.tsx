@@ -171,15 +171,19 @@ export default function LeafletCanvas({
       zoom,
       zoomControl: false,
       attributionControl: true,
-      preferCanvas: false,
+      preferCanvas: true,
       inertia: true,
       zoomAnimation: true,
+      wheelPxPerZoomLevel: 120,
     });
 
     L.tileLayer(TILE_URL, {
       attribution: TILE_ATTRIBUTION,
       maxZoom: 19,
       subdomains: "abc",
+      keepBuffer: 3,
+      updateWhenIdle: true,
+      updateWhenZooming: false,
     }).addTo(map);
 
     routeLayerRef.current = L.layerGroup().addTo(map);
@@ -196,14 +200,21 @@ export default function LeafletCanvas({
 
     // Ensure Leaflet recalculates dimensions once layout settles
     const t1 = setTimeout(() => map.invalidateSize(), 100);
-    const t2 = setTimeout(() => map.invalidateSize(), 400);
+    const t2 = setTimeout(() => map.invalidateSize(), 350);
 
-    const observer = new ResizeObserver(() => map.invalidateSize());
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new ResizeObserver(() => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        map.invalidateSize();
+      }, 120);
+    });
     observer.observe(containerRef.current);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      if (resizeTimer) clearTimeout(resizeTimer);
       observer.disconnect();
       map.remove();
       mapRef.current = null;
@@ -235,16 +246,6 @@ export default function LeafletCanvas({
         riseOnHover: true,
         zIndexOffset: isActive ? 1000 : pandal.featured ? 300 : 100,
       });
-
-      marker.bindTooltip(
-        escapeHtml(lang === "bn" ? pandal.name_bn : pandal.name_en),
-        {
-          direction: "top",
-          offset: [0, -44],
-          className: "nkp-label-tooltip",
-          opacity: 0.95,
-        },
-      );
 
       marker.on("click", (e) => {
         L.DomEvent.stopPropagation(e);
@@ -297,12 +298,6 @@ export default function LeafletCanvas({
         title: facility.name,
         riseOnHover: true,
         zIndexOffset: isActive ? 950 : 20,
-      });
-
-      marker.bindTooltip(escapeHtml(facility.name), {
-        direction: "top",
-        offset: [0, -16],
-        className: "nkp-label-tooltip",
       });
 
       marker.on("click", (e) => {
@@ -366,41 +361,30 @@ export default function LeafletCanvas({
     // 2. Dark outer road casing (Google Maps style)
     L.polyline(route.geometry, {
       color: "#070b19",
-      weight: 11,
-      opacity: 0.88,
+      weight: 10,
+      opacity: 0.9,
       lineCap: "round",
       lineJoin: "round",
     }).addTo(layer);
 
     // 3. Vibrant primary navigation line (Google Maps Blue for drive, Cyan-Blue for walk)
-    const primaryColor = route.profile === "car" ? "#2563eb" : "#0ea5e9";
+    const primaryColor = route.profile === "car" ? "#2563eb" : "#0284c7";
     const line: Polyline = L.polyline(route.geometry, {
       color: primaryColor,
-      weight: 6.5,
+      weight: 6,
       opacity: 0.98,
       lineCap: "round",
       lineJoin: "round",
     }).addTo(layer);
 
-    // 4. Animated golden directional flow dashes along the route
-    L.polyline(route.geometry, {
-      color: "#ffe6a8",
-      weight: 3,
-      opacity: 0.92,
-      lineCap: "round",
-      lineJoin: "round",
-      dashArray: "6 22",
-      className: "nkp-route-flow",
-    }).addTo(layer);
-
-    // 5. Destination target ring
+    // 4. Destination target ring
     const dest = route.geometry[route.geometry.length - 1];
     L.circleMarker(dest, {
-      radius: 10,
+      radius: 9,
       color: "#f5c76a",
       weight: 3,
       fillColor: "#2563eb",
-      fillOpacity: 0.95,
+      fillOpacity: 1,
     }).addTo(layer);
 
     if (fitRoute) {

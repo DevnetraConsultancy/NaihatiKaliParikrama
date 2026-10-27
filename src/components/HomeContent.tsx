@@ -6,7 +6,6 @@ import { useMemo } from "react";
 import { useI18n } from "@/components/LanguageProvider";
 import { CategoryTag, CrowdPill } from "@/components/map/bits";
 import {
-  CompassIcon,
   CrosshairIcon,
   MapIcon,
   MapPinIcon,
@@ -18,7 +17,6 @@ import {
 import { useCrowdLevels, useGeolocation, usePandals } from "@/lib/hooks";
 import { formatDistance, haversine, NAIHATI_CENTER, walkMinutes } from "@/lib/geo";
 import { PANDAL_CATEGORIES, type PandalWithDistance } from "@/lib/types";
-import { AnimatedDiya } from "@/components/FestiveDecorations";
 
 export default function HomeContent() {
   const { lang, t } = useI18n();
@@ -39,7 +37,7 @@ export default function HomeContent() {
         return {
           ...pandal,
           distance_m,
-          crowd: levels[pandal.slug],
+          crowd: levels[pandal.slug] ?? pandal.crowd,
         };
       })
       .sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0));
@@ -63,19 +61,17 @@ export default function HomeContent() {
           style={{ background: "radial-gradient(circle, #f5c76a 0%, transparent 70%)" }}
         />
 
-        <div className="relative mx-auto flex items-center justify-center gap-3.5">
-          <div className="hidden xs:block opacity-90"><AnimatedDiya size={32} glow /></div>
-          <div className="relative size-28 shrink-0 overflow-hidden rounded-full border-2 border-gold/80 shadow-[0_0_28px_rgba(245,199,106,0.5)]">
+        <div className="relative mx-auto flex items-center justify-center">
+          <div className="relative size-24 shrink-0 overflow-hidden rounded-full border-2 border-gold/80 shadow-[0_0_24px_rgba(245,199,106,0.5)]">
             <Image
               src="/boro-maa-emblem.png"
               alt="Naihati Boro Maa"
-              width={112}
-              height={112}
+              width={96}
+              height={96}
               className="size-full object-cover"
               priority
             />
           </div>
-          <div className="hidden xs:block opacity-90"><AnimatedDiya size={32} glow /></div>
         </div>
 
         <h1 className="bengali-gradient-text bn-text mt-3.5 text-[22px] font-bold tracking-tight">
@@ -118,10 +114,7 @@ export default function HomeContent() {
         {geo.status === "granted" && userPosition ? (
           <div className="flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.08] px-3.5 py-2.5 text-[12.5px]">
             <div className="flex items-center gap-2">
-              <span className="relative flex size-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
-              </span>
+              <span className="size-2 rounded-full bg-emerald-400" />
               <span className="font-medium text-emerald-200">
                 {lang === "bn" ? "আপনার লোকেশন সক্রিয়" : "Your location is active"}
               </span>
@@ -243,7 +236,7 @@ export default function HomeContent() {
                     </div>
 
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <CrowdPill info={levels[pandal.slug]} lang={lang} size="sm" />
+                      <CrowdPill info={levels[pandal.slug] ?? pandal.crowd} lang={lang} size="sm" />
                     </div>
                   </div>
 

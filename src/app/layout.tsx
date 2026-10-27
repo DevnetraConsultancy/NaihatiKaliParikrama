@@ -4,7 +4,6 @@ import "./globals.css";
 import AppHeader from "@/components/AppHeader";
 import TabBar from "@/components/TabBar";
 import { LanguageProvider } from "@/components/LanguageProvider";
-import { FestiveAtmosphere } from "@/components/FestiveDecorations";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const bengali = Noto_Sans_Bengali({
@@ -33,7 +32,7 @@ export const metadata: Metadata = {
     description:
       "Scan, allow location, and walk the Naihati Kali Puja parikrama with live routes, ETAs and crowd levels.",
     type: "website",
-    images: [{ url: "/boro-maa-emblem.png", width: 1254, height: 1254, alt: "Naihati Boro Maa" }],
+    images: [{ url: "/boro-maa-emblem.png", width: 320, height: 320, alt: "Naihati Boro Maa" }],
   },
   robots: { index: true, follow: true },
 };
@@ -50,7 +49,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="bn" className={`${inter.variable} ${bengali.variable}`}>
       <body className="min-h-[100dvh] bg-ink font-sans antialiased text-white selection:bg-gold/30 selection:text-gold relative overflow-x-hidden">
         <LanguageProvider>
-          <FestiveAtmosphere />
           <AppHeader />
           <main className="relative z-10">{children}</main>
           <TabBar />
