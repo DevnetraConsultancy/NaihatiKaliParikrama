@@ -18,6 +18,7 @@ import {
 import { useCrowdLevels, useGeolocation, usePandals } from "@/lib/hooks";
 import { formatDistance, haversine, NAIHATI_CENTER, walkMinutes } from "@/lib/geo";
 import { PANDAL_CATEGORIES, type PandalWithDistance } from "@/lib/types";
+import { AnimatedDiya } from "@/components/FestiveDecorations";
 
 export default function HomeContent() {
   const { lang, t } = useI18n();
@@ -62,15 +63,19 @@ export default function HomeContent() {
           style={{ background: "radial-gradient(circle, #f5c76a 0%, transparent 70%)" }}
         />
 
-        <div className="relative mx-auto size-28 overflow-hidden rounded-full border-2 border-gold/70 shadow-[0_0_24px_rgba(245,199,106,0.45)]">
-          <Image
-            src="/boro-maa-emblem.png"
-            alt="Naihati Boro Maa"
-            width={112}
-            height={112}
-            className="size-full object-cover"
-            priority
-          />
+        <div className="relative mx-auto flex items-center justify-center gap-3.5">
+          <div className="hidden xs:block opacity-90"><AnimatedDiya size={32} glow /></div>
+          <div className="relative size-28 shrink-0 overflow-hidden rounded-full border-2 border-gold/80 shadow-[0_0_28px_rgba(245,199,106,0.5)]">
+            <Image
+              src="/boro-maa-emblem.png"
+              alt="Naihati Boro Maa"
+              width={112}
+              height={112}
+              className="size-full object-cover"
+              priority
+            />
+          </div>
+          <div className="hidden xs:block opacity-90"><AnimatedDiya size={32} glow /></div>
         </div>
 
         <h1 className="bengali-gradient-text bn-text mt-3.5 text-[22px] font-bold tracking-tight">

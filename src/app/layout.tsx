@@ -4,6 +4,7 @@ import "./globals.css";
 import AppHeader from "@/components/AppHeader";
 import TabBar from "@/components/TabBar";
 import { LanguageProvider } from "@/components/LanguageProvider";
+import { FestiveAtmosphere } from "@/components/FestiveDecorations";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const bengali = Noto_Sans_Bengali({
@@ -47,10 +48,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="bn" className={`${inter.variable} ${bengali.variable}`}>
-      <body className="min-h-[100dvh] bg-ink font-sans antialiased text-white selection:bg-gold/30 selection:text-gold">
+      <body className="min-h-[100dvh] bg-ink font-sans antialiased text-white selection:bg-gold/30 selection:text-gold relative overflow-x-hidden">
         <LanguageProvider>
+          <FestiveAtmosphere />
           <AppHeader />
-          <main className="relative">{children}</main>
+          <main className="relative z-10">{children}</main>
           <TabBar />
         </LanguageProvider>
       </body>
