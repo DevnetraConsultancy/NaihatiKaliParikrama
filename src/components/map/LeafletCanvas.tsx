@@ -15,10 +15,10 @@ import type {
 
 const TILE_URL =
   process.env.NEXT_PUBLIC_TILE_URL ||
-  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTRIBUTION =
   process.env.NEXT_PUBLIC_TILE_ATTRIBUTION ||
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 function facilitySvg(kind: string): string {
   switch (kind) {
@@ -179,8 +179,7 @@ export default function LeafletCanvas({
     L.tileLayer(TILE_URL, {
       attribution: TILE_ATTRIBUTION,
       maxZoom: 19,
-      subdomains: "abcd",
-      detectRetina: true,
+      subdomains: "abc",
     }).addTo(map);
 
     routeLayerRef.current = L.layerGroup().addTo(map);

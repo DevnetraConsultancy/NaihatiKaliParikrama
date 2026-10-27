@@ -146,7 +146,7 @@ export default function MapExperience() {
 
   const [manualPosition, setManualPosition] = useState<LatLng | null>(null);
   const [follow, setFollow] = useState(false);
-  const [nightMode, setNightMode] = useState(true);
+  const [nightMode, setNightMode] = useState(false);
   const [categories, setCategories] = useState<PandalCategory[]>([...PANDAL_CATEGORIES]);
   const [facilityKinds, setFacilityKinds] = useState<string[]>(DEFAULT_FACILITY_KINDS);
   const [allFacilities, setAllFacilities] = useState<Facility[]>([]);
