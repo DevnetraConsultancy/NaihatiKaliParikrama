@@ -12,6 +12,12 @@
   "categories": ["navigation", "travel", "lifestyle"],
   "icons": [
     {
+      "src": "/boro-maa-emblem.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",

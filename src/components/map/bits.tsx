@@ -4,6 +4,21 @@ import { levelColor, levelLabel, levelReason, type CrowdLevel } from "@/lib/crow
 import { formatDistance, formatMinutes } from "@/lib/geo";
 import { facilityLabel } from "@/lib/i18n";
 import type { CrowdInfo, Facility, Lang, Pandal, PandalCategory, RouteResult } from "@/lib/types";
+import {
+  AtmIcon,
+  CarIcon,
+  HospitalIcon,
+  MapPinIcon,
+  NavigationIcon,
+  ParkingIcon,
+  PharmacyIcon,
+  PhoneIcon,
+  PoliceIcon,
+  RestaurantIcon,
+  ToiletIcon,
+  TrainIcon,
+  WalkIcon,
+} from "@/components/Icons";
 
 export const CATEGORY_COLOR: Record<PandalCategory, string> = {
   heritage: "var(--color-heritage)",
@@ -29,9 +44,9 @@ export function Chip({
       type="button"
       title={title}
       onClick={onClick}
-      className={`liquid-press flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium whitespace-nowrap ${
+      className={`liquid-press flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium whitespace-nowrap transition-colors ${
         active
-          ? "border-transparent text-ink"
+          ? "border-transparent text-ink font-semibold"
           : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
       }`}
       style={active ? { backgroundColor: color ?? "var(--color-gold)" } : undefined}
@@ -52,9 +67,9 @@ export function CrowdPill({
 }) {
   if (!info) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-white/60">
-        <span className="size-2 rounded-full bg-white/40" />
-        {lang === "bn" ? "ভিড়ের তথ্য নেই" : "No crowd data"}
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] text-white/60">
+        <span className="size-1.5 rounded-full bg-white/40" />
+        {lang === "bn" ? "তথ্য নেই" : "No data"}
       </span>
     );
   }
@@ -62,13 +77,13 @@ export function CrowdPill({
   const label = levelLabel(info.level as CrowdLevel, lang);
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-medium ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-medium ${
         size === "sm" ? "text-[11px]" : "text-[12px]"
       }`}
       style={{ borderColor: `${color}66`, backgroundColor: `${color}1f`, color }}
       title={levelReason(info, lang)}
     >
-      <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
       {label}
       {info.source === "live" && info.reports > 0 ? (
         <span className="opacity-70">· {info.reports}</span>
@@ -85,14 +100,14 @@ export function CategoryTag({ category, lang }: { category: PandalCategory; lang
         : "Heritage"
       : category === "large"
         ? lang === "bn"
-          ? "বড় প্যান্ডেল"
+          ? "বড়"
           : "Large"
         : lang === "bn"
-          ? "ছোট প্যান্ডেল"
+          ? "ছোট"
           : "Small";
   return (
     <span
-      className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold tracking-wide"
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold tracking-wide"
       style={{
         color: CATEGORY_COLOR[category],
         backgroundColor:
@@ -127,21 +142,21 @@ export function PandalRow({
     <button
       type="button"
       onClick={onClick}
-      className={`liquid-card w-full rounded-2xl border p-3 text-left ${
+      className={`liquid-card w-full rounded-2xl border p-3 text-left transition-colors ${
         active ? "border-gold/60 bg-gold/10" : "border-white/10 bg-white/[0.04] hover:bg-white/[0.07]"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <CategoryTag category={pandal.category} lang={lang} />
             {pandal.featured ? (
-              <span className="text-[10.5px] font-semibold text-gold">
+              <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-semibold text-gold">
                 {lang === "bn" ? "জনপ্রিয়" : "Popular"}
               </span>
             ) : null}
           </div>
-          <p className="mt-1.5 truncate text-[14.5px] font-semibold text-white">
+          <p className="mt-1.5 truncate text-[14px] font-semibold text-white">
             {lang === "bn" ? pandal.name_bn : pandal.name_en}
           </p>
           <p className="truncate text-[11.5px] text-white/55">
@@ -161,6 +176,32 @@ export function PandalRow({
   );
 }
 
+function FacilityIcon({ kind }: { kind: string }) {
+  const size = 15;
+  switch (kind) {
+    case "hospital":
+      return <HospitalIcon size={size} className="stroke-rose-400" />;
+    case "police":
+      return <PoliceIcon size={size} className="stroke-sky-400" />;
+    case "toilets":
+      return <ToiletIcon size={size} className="stroke-teal-400" />;
+    case "restaurant":
+      return <RestaurantIcon size={size} className="stroke-amber-400" />;
+    case "railway":
+      return <TrainIcon size={size} className="stroke-indigo-400" />;
+    case "pharmacy":
+      return <PharmacyIcon size={size} className="stroke-emerald-400" />;
+    case "atm":
+      return <AtmIcon size={size} className="stroke-cyan-400" />;
+    case "parking":
+      return <ParkingIcon size={size} className="stroke-blue-400" />;
+    case "help":
+      return <PhoneIcon size={size} className="stroke-amber-400" />;
+    default:
+      return <MapPinIcon size={size} className="stroke-white/70" />;
+  }
+}
+
 export function FacilityRow({
   facility,
   lang,
@@ -172,57 +213,37 @@ export function FacilityRow({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
-      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/8 text-[15px]">
-        {facility.kind === "hospital"
-          ? "🏥"
-          : facility.kind === "police"
-            ? "🚓"
-            : facility.kind === "toilets"
-              ? "🚻"
-              : facility.kind === "restaurant"
-                ? "🍽"
-                : facility.kind === "railway"
-                  ? "🚉"
-                  : facility.kind === "pharmacy"
-                    ? "💊"
-                    : facility.kind === "ferry"
-                      ? "⛴"
-                      : facility.kind === "atm"
-                        ? "🏧"
-                        : facility.kind === "parking"
-                          ? "🅿"
-                          : facility.kind === "help"
-                            ? "☎"
-                            : "📍"}
+      <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/8">
+        <FacilityIcon kind={facility.kind} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13.5px] font-medium text-white/90">{facility.name}</p>
+        <p className="truncate text-[13px] font-medium text-white/90">{facility.name}</p>
         <p className="truncate text-[11px] text-white/50">
           {facilityLabel(String(facility.kind), lang)}
           {typeof facility.distance === "number"
             ? ` · ${formatDistance(facility.distance, lang)}`
             : ""}
-          {facility.source === "seed" ? (lang === "bn" ? " · আনুমানিক" : " · approximate") : ""}
+          {facility.source === "seed" ? (lang === "bn" ? " · আনুমানিক" : " · approx") : ""}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         {facility.phone ? (
           <a
             href={`tel:${facility.phone}`}
-            className="liquid-press grid size-8 place-items-center rounded-full border border-white/15 bg-white/5 text-[13px]"
+            className="liquid-press grid size-8 place-items-center rounded-full border border-white/15 bg-white/5 text-gold hover:border-gold/50"
             aria-label="Call"
           >
-            ☎
+            <PhoneIcon size={14} className="stroke-current" />
           </a>
         ) : null}
         {onRoute ? (
           <button
             type="button"
             onClick={onRoute}
-            className="liquid-press grid size-8 place-items-center rounded-full border border-white/15 bg-white/5 text-[13px]"
+            className="liquid-press grid size-8 place-items-center rounded-full border border-white/15 bg-white/5 text-white hover:border-gold hover:text-gold"
             aria-label={lang === "bn" ? "পথ" : "Route"}
           >
-            ➤
+            <NavigationIcon size={13} className="stroke-current" />
           </button>
         ) : null}
       </div>
@@ -249,37 +270,39 @@ export function RouteSummary({
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-1.5">
           <Chip active={profile === "foot"} onClick={() => onProfileChange("foot")}>
-            🚶 {lang === "bn" ? "হাঁটা" : "Walk"}
+            <WalkIcon size={13} className="stroke-current" />
+            <span>{lang === "bn" ? "হাঁটা" : "Walk"}</span>
           </Chip>
           <Chip active={profile === "car"} onClick={() => onProfileChange("car")}>
-            🛺 {lang === "bn" ? "গাড়ি" : "Drive"}
+            <CarIcon size={13} className="stroke-current" />
+            <span>{lang === "bn" ? "গাড়ি" : "Drive"}</span>
           </Chip>
         </div>
         <button
           type="button"
           onClick={onClear}
-          className="liquid-press rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[12px] text-white/70"
+          className="liquid-press rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11.5px] text-white/70 hover:bg-white/10"
         >
-          {lang === "bn" ? "পথ মুছুন" : "Clear"}
+          {lang === "bn" ? "মুছুন" : "Clear"}
         </button>
       </div>
       <div className="mt-2.5 flex items-baseline gap-4">
         <div>
-          <p className="text-[19px] font-semibold text-white">
+          <p className="text-[19px] font-bold text-white">
             {formatMinutes(minutes, lang)}
           </p>
           <p className="text-[11px] text-white/60">
             {profile === "foot"
               ? lang === "bn"
                 ? "হেঁটে (ভিড় ধরে)"
-                : "on foot (crowd adjusted)"
+                : "walk (crowd adjusted)"
               : lang === "bn"
                 ? "গাড়িতে"
                 : "by vehicle"}
           </p>
         </div>
         <div>
-          <p className="text-[19px] font-semibold text-white">
+          <p className="text-[19px] font-bold text-white">
             {formatDistance(route.distance_m, lang)}
           </p>
           <p className="text-[11px] text-white/60">{lang === "bn" ? "দূরত্ব" : "distance"}</p>
@@ -292,13 +315,13 @@ export function RouteSummary({
       </div>
       {route.steps.length > 0 ? (
         <details className="mt-2.5">
-          <summary className="cursor-pointer text-[12px] font-medium text-gold">
+          <summary className="cursor-pointer text-[12px] font-medium text-gold hover:underline">
             {lang === "bn" ? "পথের ধাপ দেখুন" : "Show directions"}
           </summary>
           <ol className="mt-2 space-y-1.5">
             {route.steps.slice(0, 24).map((step, index) => (
               <li key={index} className="flex items-start gap-2 text-[12px] text-white/75">
-                <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-white/10 text-[9px]">
+                <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-white/10 text-[9px] font-semibold">
                   {index + 1}
                 </span>
                 <span className="flex-1">
@@ -327,11 +350,11 @@ export function CrowdReporter({
   busy?: boolean;
   message?: string | null;
 }) {
-  const options: { level: 1 | 2 | 3 | 4; emoji: string }[] = [
-    { level: 1, emoji: "🟢" },
-    { level: 2, emoji: "🟡" },
-    { level: 3, emoji: "🟠" },
-    { level: 4, emoji: "🔴" },
+  const options: { level: 1 | 2 | 3 | 4; color: string }[] = [
+    { level: 1, color: "#3dd6c0" },
+    { level: 2, color: "#f5c76a" },
+    { level: 3, color: "#ff914d" },
+    { level: 4, color: "#ff5f7e" },
   ];
   return (
     <div className="rounded-2xl border border-white/12 bg-white/[0.04] p-3">
@@ -345,10 +368,13 @@ export function CrowdReporter({
             type="button"
             disabled={busy}
             onClick={() => onReport(option.level)}
-            className="liquid-press rounded-xl border border-white/12 bg-white/5 px-1 py-2 text-center disabled:opacity-50"
+            className="liquid-press flex flex-col items-center justify-center rounded-xl border border-white/12 bg-white/5 py-2 px-1 text-center transition-colors hover:bg-white/10 disabled:opacity-50"
           >
-            <span className="block text-[13px]">{option.emoji}</span>
-            <span className="mt-0.5 block text-[10.5px] text-white/75">
+            <span
+              className="size-3 rounded-full shadow-[0_0_8px_currentColor]"
+              style={{ backgroundColor: option.color, color: option.color }}
+            />
+            <span className="mt-1 block text-[10.5px] font-medium text-white/80">
               {levelLabel(option.level, lang)}
             </span>
           </button>

@@ -1,5 +1,21 @@
 "use client";
 
+import {
+  AtmIcon,
+  CrosshairIcon,
+  HospitalIcon,
+  MapPinIcon,
+  NavigationIcon,
+  ParkingIcon,
+  PharmacyIcon,
+  PhoneIcon,
+  PoliceIcon,
+  RestaurantIcon,
+  ToiletIcon,
+  TrainIcon,
+  WalkIcon,
+} from "@/components/Icons";
+
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Map as LeafletMap } from "leaflet";
@@ -31,14 +47,28 @@ const LeafletCanvas = dynamic(() => import("./LeafletCanvas"), {
   ),
 });
 
-const FACILITY_CHIPS: { kind: string; emoji: string }[] = [
-  { kind: "hospital", emoji: "🏥" },
-  { kind: "police", emoji: "🚓" },
-  { kind: "toilets", emoji: "🚻" },
-  { kind: "restaurant", emoji: "🍽" },
-  { kind: "railway", emoji: "🚉" },
-  { kind: "atm", emoji: "🏧" },
-  { kind: "parking", emoji: "🅿" },
+function FacilityChipIcon({ kind }: { kind: string }) {
+  const size = 13;
+  switch (kind) {
+    case "hospital": return <HospitalIcon size={size} className="stroke-current" />;
+    case "police": return <PoliceIcon size={size} className="stroke-current" />;
+    case "toilets": return <ToiletIcon size={size} className="stroke-current" />;
+    case "restaurant": return <RestaurantIcon size={size} className="stroke-current" />;
+    case "railway": return <TrainIcon size={size} className="stroke-current" />;
+    case "atm": return <AtmIcon size={size} className="stroke-current" />;
+    case "parking": return <ParkingIcon size={size} className="stroke-current" />;
+    default: return <MapPinIcon size={size} className="stroke-current" />;
+  }
+}
+
+const FACILITY_CHIPS: { kind: string }[] = [
+  { kind: "hospital" },
+  { kind: "police" },
+  { kind: "toilets" },
+  { kind: "restaurant" },
+  { kind: "railway" },
+  { kind: "atm" },
+  { kind: "parking" },
 ];
 
 const DEFAULT_FACILITY_KINDS = ["hospital", "police", "toilets"];
@@ -97,6 +127,9 @@ export default function MapExperience() {
     } else if (pandalParam) {
       setActiveSlug(pandalParam);
       setSheetView("detail");
+      if (params.get("route") === "1") {
+        setRouteTargets([pandalParam]);
+      }
     } else {
       setShowIntro(true);
     }
@@ -354,7 +387,7 @@ export default function MapExperience() {
               onClick={() => toggleFacility(chip.kind)}
               title={t(chip.kind)}
             >
-              <span>{chip.emoji}</span>
+              <FacilityChipIcon kind={chip.kind} />
               <span className="hidden sm:inline">{t(chip.kind)}</span>
             </Chip>
           ))}
@@ -377,7 +410,7 @@ export default function MapExperience() {
           className="glass-strong liquid-press grid size-12 place-items-center rounded-2xl text-[18px] shadow-xl"
           title={t("recenter")}
         >
-          ◎
+          <CrosshairIcon size={18} className="stroke-white" />
         </button>
         <button
           type="button"
@@ -511,7 +544,7 @@ export default function MapExperience() {
                     onClick={() => startRouteTo(activePandal.slug)}
                     className="liquid-press glow-gold flex-1 rounded-2xl bg-gold px-4 py-3 text-[13.5px] font-semibold text-ink disabled:opacity-60"
                   >
-                    {routeLoading ? t("loading") : `➤ ${t("startRoute")}`}
+                    {routeLoading ? t("loading") : <span className="inline-flex items-center gap-1.5"><NavigationIcon size={14} className="stroke-ink" />{t("startRoute")}</span>}
                   </button>
                   <button
                     type="button"
@@ -548,7 +581,7 @@ export default function MapExperience() {
                     {[...nearbyOfKind("toilets"), ...nearbyOfKind("hospital"), ...nearbyOfKind("police")].map(
                       (facility) => (
                         <p key={`${facility.kind}-${facility.name}`} className="text-[11.5px] text-white/60">
-                          {facility.kind === "toilets" ? "🚻" : facility.kind === "hospital" ? "🏥" : "🚓"}{" "}
+                          <span className="inline-block mr-1"><FacilityChipIcon kind={facility.kind} /></span>
                           {facility.name}
                           {typeof facility.distance === "number"
                             ? ` · ${formatDistance(facility.distance, lang)}`
@@ -655,8 +688,8 @@ export default function MapExperience() {
                       <span className="text-[13px] font-semibold text-gold">
                         {formatDistance(nextPandal.distance_m ?? 0, lang)}
                       </span>
-                      <span className="text-[12.5px] text-white/75">
-                        🚶{" "}
+                      <span className="flex items-center gap-1 text-[12.5px] text-white/75">
+                        <WalkIcon size={13} className="stroke-white/75" />
                         {formatMinutes(
                           roughWalkMinutes(nextPandal.distance_m ?? 0, nextPandal.crowd?.level ?? 1),
                           lang,
@@ -670,7 +703,7 @@ export default function MapExperience() {
                         onClick={() => startRouteTo(nextPandal.slug)}
                         className="liquid-press glow-gold flex-1 rounded-2xl bg-gold px-3 py-2.5 text-[13px] font-semibold text-ink"
                       >
-                        ➤ {t("startRoute")}
+                        <span className="inline-flex items-center gap-1.5"><NavigationIcon size={14} className="stroke-ink" />{t("startRoute")}</span>
                       </button>
                       <button
                         type="button"
@@ -745,7 +778,7 @@ export default function MapExperience() {
                             key={kind}
                             className="rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-[11.5px] text-white/70"
                           >
-                            {FACILITY_CHIPS.find((chip) => chip.kind === kind)?.emoji} {t(kind)}
+                            <span className="inline-flex items-center gap-1"><FacilityChipIcon kind={kind} /> {t(kind)}</span>
                             {nearest?.distance
                               ? ` · ${formatDistance(nearest.distance, lang)}`
                               : ""}

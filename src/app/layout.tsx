@@ -13,6 +13,7 @@ const bengali = Noto_Sans_Bengali({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://naihatikaliparikrama.vercel.app"),
   title: {
     default: "NaihatiKaliParikrama — নৈহাটি কালীপূজা লাইভ ম্যাপ",
     template: "%s · NaihatiKaliParikrama",
@@ -23,14 +24,15 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "Naihati Parikrama", statusBarStyle: "black-translucent" },
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/icon.svg" }],
+    icon: [{ url: "/boro-maa-emblem.png", type: "image/png" }],
+    apple: [{ url: "/boro-maa-emblem.png" }],
   },
   openGraph: {
     title: "NaihatiKaliParikrama — live Kali Puja pandal map for Naihati",
     description:
       "Scan, allow location, and walk the Naihati Kali Puja parikrama with live routes, ETAs and crowd levels.",
     type: "website",
+    images: [{ url: "/boro-maa-emblem.png", width: 1254, height: 1254, alt: "Naihati Boro Maa" }],
   },
   robots: { index: true, follow: true },
 };
@@ -45,7 +47,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="bn" className={`${inter.variable} ${bengali.variable}`}>
-      <body className="min-h-[100dvh] bg-ink font-sans">
+      <body className="min-h-[100dvh] bg-ink font-sans antialiased text-white selection:bg-gold/30 selection:text-gold">
         <LanguageProvider>
           <AppHeader />
           <main className="relative">{children}</main>

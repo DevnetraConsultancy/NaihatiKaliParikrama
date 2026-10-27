@@ -24,21 +24,30 @@ const CATEGORY_GLYPH: Record<PandalCategory, string> = {
   small: "•",
 };
 
-const FACILITY_GLYPH: Record<string, string> = {
-  hospital: "🏥",
-  police: "🚓",
-  toilets: "🚻",
-  restaurant: "🍽",
-  pharmacy: "💊",
-  fire_station: "🚒",
-  railway: "🚉",
-  ferry: "⛴",
-  atm: "🏧",
-  parking: "🅿",
-  market: "🛒",
-  water: "🚰",
-  help: "☎",
-};
+function facilitySvg(kind: string): string {
+  switch (kind) {
+    case "hospital":
+      return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ff5f7e" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>';
+    case "police":
+      return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4dabff" stroke-width="2"><path d="M12 2l8 4v6c0 5.5-3.8 10.7-8 12-4.2-1.3-8-6.5-8-12V6l8-4z"/></svg>';
+    case "toilets":
+      return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3dd6c0" stroke-width="2"><path d="M7 4h10M9 4v7a3 3 0 0 0 6 0V4M12 14v7M8 21h8"/></svg>';
+    case "restaurant":
+      return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f5c76a" stroke-width="2"><path d="M18 2v20M21 15V2a5 5 0 0 0-5 5v8h5zm0 0v7M3 2v7c0 1.1.9 2 2 2h2a2 2 0 0 0 2-2V2M7 11v11"/></svg>';
+    case "railway":
+      return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="4" y="3" width="16" height="15" rx="2"/><line x1="4" y1="11" x2="20" y2="11"/><circle cx="8" cy="15" r="1"/><circle cx="16" cy="15" r="1"/></svg>';
+    case "pharmacy":
+      return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+    case "parking":
+      return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>';
+    case "atm":
+      return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>';
+    case "help":
+      return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+    default:
+      return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f5c76a" stroke-width="2"><circle cx="12" cy="12" r="5" fill="#f5c76a"/></svg>';
+  }
+}
 
 function pinIcon(category: PandalCategory, active: boolean): L.DivIcon {
   return L.divIcon({
@@ -56,7 +65,7 @@ function pinIcon(category: PandalCategory, active: boolean): L.DivIcon {
 function facilityIcon(kind: string): L.DivIcon {
   return L.divIcon({
     className: "nkp-facility-wrapper",
-    html: `<span class="nkp-facility">${FACILITY_GLYPH[kind] ?? "•"}</span>`,
+    html: `<span class="nkp-facility">${facilitySvg(kind)}</span>`,
     iconSize: [24, 24],
     iconAnchor: [12, 12],
     popupAnchor: [0, -12],

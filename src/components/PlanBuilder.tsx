@@ -9,6 +9,7 @@ import { useCrowdLevels, useGeolocation, usePandals } from "@/lib/hooks";
 import { NAIHATI_CENTER } from "@/lib/geo";
 import { matchesQuery, pandalHaystack } from "@/lib/search";
 import type { Lang, Pandal } from "@/lib/types";
+import { CompassIcon, NavigationIcon, WalkIcon } from "@/components/Icons";
 
 function segmentDistance(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   // Streets are never straight, so the straight-line hop is scaled by 1.25.
@@ -91,7 +92,7 @@ export default function PlanBuilder() {
                 {formatDistance(totals.distance, lang)}
               </p>
               <p className="text-[11px] text-white/55">
-                🚶 {formatMinutes(totals.minutes, lang)}
+                <span className="inline-flex items-center gap-1"><WalkIcon size={12} className="stroke-white/55" />{formatMinutes(totals.minutes, lang)}</span>
               </p>
             </div>
           </div>
@@ -150,14 +151,14 @@ export default function PlanBuilder() {
               href={`/map?stops=${stops.map((stop) => stop.slug).join(",")}`}
               className="liquid-press glow-gold flex-1 rounded-2xl bg-gold px-4 py-3 text-center text-[13.5px] font-semibold text-ink"
             >
-              ➤ {t("openRouteInMap")}
+              <span className="inline-flex items-center gap-1.5 justify-center"><NavigationIcon size={14} className="stroke-ink" />{t("openRouteInMap")}</span>
             </Link>
             <button
               type="button"
               onClick={optimize}
               className="liquid-press rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-[13.5px]"
             >
-              🧭 {t("optimizeOrder")}
+              <span className="inline-flex items-center gap-1.5 justify-center"><CompassIcon size={14} className="stroke-white" />{t("optimizeOrder")}</span>
             </button>
             <button
               type="button"

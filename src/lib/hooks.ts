@@ -24,7 +24,26 @@ export function useGeolocation(enabled: boolean): GeoState & { request: () => vo
 
   const request = useCallback(() => {
     requestedRef.current = true;
-    setState((current) => (current.status === "idle" ? { ...current, status: "idle" } : current));
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setState((current) => ({ ...current, status: "unsupported" }));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setState({
+          position: { lat: pos.coords.latitude, lng: pos.coords.longitude },
+          accuracy: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null,
+          status: "granted",
+        });
+      },
+      (error) => {
+        setState((current) => ({
+          ...current,
+          status: error.code === error.PERMISSION_DENIED ? "denied" : "unavailable",
+        }));
+      },
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
   }, []);
 
   useEffect(() => {
