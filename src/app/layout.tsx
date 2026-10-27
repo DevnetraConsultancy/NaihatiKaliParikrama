@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     description:
       "Scan, allow location, and walk the Naihati Kali Puja parikrama with live routes, ETAs and crowd levels.",
     type: "website",
-    images: [{ url: "/boro-maa-emblem.png", width: 320, height: 320, alt: "Naihati Boro Maa" }],
+    images: [{ url: "/boro-maa-emblem.png", width: 512, height: 512, alt: "Naihati Boro Maa" }],
   },
   robots: { index: true, follow: true },
 };

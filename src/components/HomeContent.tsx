@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useMemo } from "react";
 import { useI18n } from "@/components/LanguageProvider";
 import { CategoryTag, CrowdPill } from "@/components/map/bits";
+import { RotatingFloralAlpona } from "@/components/AppHeader";
 import {
   CrosshairIcon,
   MapIcon,
@@ -62,7 +63,8 @@ export default function HomeContent() {
         />
 
         <div className="relative mx-auto flex items-center justify-center">
-          <div className="relative size-24 shrink-0 overflow-hidden rounded-full border-2 border-gold/80 shadow-[0_0_24px_rgba(245,199,106,0.5)]">
+          <RotatingFloralAlpona size={124} className="absolute inset-0 m-auto" />
+          <div className="relative size-24 shrink-0 overflow-hidden rounded-full border-2 border-gold/80 shadow-[0_0_24px_rgba(245,199,106,0.5)] z-10 bg-ink">
             <Image
               src="/boro-maa-emblem.png"
               alt="Naihati Boro Maa"
