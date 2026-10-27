@@ -1,0 +1,48 @@
+{
+  "_note": "Fallback facilities for Naihati. Every entry below is a real, named place taken from OpenStreetMap (with its OSM-derived coordinates) plus the small number of manually added municipal helplines. The app prefers live OpenStreetMap Overpass results and falls back to this list when the network or the OSM service is unavailable.",
+  "facilities": [
+    { "kind": "hospital", "name": "Naihati State General Hospital", "lat": 22.8949254, "lng": 88.4288618, "address": "Naihati, North 24 Parganas", "phone": null, "source": "seed" },
+    { "kind": "hospital", "name": "Naihati Municipality Maternity Hospital", "lat": 22.8885247, "lng": 88.4177971, "address": "Naihati Municipality area", "phone": null, "source": "seed" },
+    { "kind": "hospital", "name": "Netraloke Eye Hospital, Naihati", "lat": 22.8877971, "lng": 88.4287176, "address": "Naihati", "phone": null, "source": "seed" },
+    { "kind": "hospital", "name": "Green View Clinic and Nursing Home", "lat": 22.8913861, "lng": 88.4195325, "address": "Naihati", "phone": null, "source": "seed" },
+    { "kind": "hospital", "name": "Malancha Nursing Home", "lat": 22.8897775, "lng": 88.4216045, "address": "Naihati", "phone": null, "source": "seed" },
+    { "kind": "hospital", "name": "R.M. Eye Foundation", "lat": 22.894594, "lng": 88.3972574, "address": "Naihati", "phone": null, "source": "seed" },
+
+    { "kind": "police", "name": "Naihati Police Station", "lat": 22.8930958, "lng": 88.412472, "address": "Naihati, North 24 Parganas", "phone": "100", "source": "seed" },
+
+    { "kind": "pharmacy", "name": "Nibedita Medipoint", "lat": 22.889737, "lng": 88.4147766, "address": "Naihati", "phone": null, "source": "seed" },
+    { "kind": "pharmacy", "name": "Raza Medical Hall", "lat": 22.9114986, "lng": 88.4102718, "address": "Naihati", "phone": null, "source": "seed" },
+
+    { "kind": "toilets", "name": "Public toilet, Naihati bazar side", "lat": 22.8892379, "lng": 88.4121446, "address": "Naihati", "phone": null, "source": "seed" },
+
+    { "kind": "restaurant", "name": "Raj Cabin", "lat": 22.8898661, "lng": 88.4184401, "address": "Naihati", "phone": null, "source": "seed" },
+    { "kind": "restaurant", "name": "Prince", "lat": 22.8856465, "lng": 88.4194689, "address": "Naihati", "phone": null, "source": "seed" },
+    { "kind": "restaurant", "name": "Tiffin Time", "lat": 22.885239, "lng": 88.4199054, "address": "Naihati", "phone": null, "source": "seed" },
+    { "kind": "restaurant", "name": "Momo Kutir", "lat": 22.8893935, "lng": 88.4137257, "address": "Naihati", "phone": null, "source": "seed" },
+    { "kind": "restaurant", "name": "Suruchi-Abhiruchi", "lat": 22.8882089, "lng": 88.417603, "address": "Naihati", "phone": null, "source": "seed" },
+    { "kind": "restaurant", "name": "Khai Khai", "lat": 22.8898442, "lng": 88.4149505, "address": "Naihati", "phone": null, "source": "seed" },
+    { "kind": "restaurant", "name": "Waffleaffaire Cafe", "lat": 22.8901029, "lng": 88.4149141, "address": "Naihati", "phone": null, "source": "seed" },
+
+    { "kind": "railway", "name": "Naihati Junction", "lat": 22.8870061, "lng": 88.4176531, "address": "Naihati, Eastern Railway", "phone": "139", "source": "seed" },
+    { "kind": "railway", "name": "Kankinara", "lat": 22.8667532, "lng": 88.405593, "address": "Kankinara", "phone": "139", "source": "seed" },
+    { "kind": "railway", "name": "Halisahar", "lat": 22.9209659, "lng": 88.436979, "address": "Halisahar", "phone": "139", "source": "seed" },
+    { "kind": "railway", "name": "Hooghly Ghat", "lat": 22.9049023, "lng": 88.3965631, "address": "Hooghly Ghat", "phone": "139", "source": "seed" },
+
+    { "kind": "ferry", "name": "Naihati Ferry Ghat", "lat": 22.8900338, "lng": 88.4114623, "address": "Hooghly river bank, Naihati", "phone": null, "source": "seed" },
+
+    { "kind": "atm", "name": "ATM, Naihati station area", "lat": 22.886978, "lng": 88.4176033, "address": "Naihati Junction", "phone": null, "source": "seed" },
+    { "kind": "atm", "name": "ATM, Naihati bazar", "lat": 22.8893749, "lng": 88.4169938, "address": "Naihati bazar", "phone": null, "source": "seed" },
+
+    { "kind": "parking", "name": "Parking ground, Naihati Athletic Club", "lat": 22.8855365, "lng": 88.4204531, "address": "Naihati", "phone": null, "source": "seed" },
+    { "kind": "parking", "name": "Parking ground, Baroari Math", "lat": 22.8733654, "lng": 88.4077697, "address": "South Naihati", "phone": null, "source": "seed" },
+
+    { "kind": "market", "name": "Naihati Bazar", "lat": 22.8892, "lng": 88.4198, "address": "Naihati", "phone": null, "source": "seed" },
+
+    { "kind": "help", "name": "Naihati Municipality control room", "lat": 22.8886, "lng": 88.4207, "address": "Naihati Municipality office", "phone": null, "source": "seed" },
+    { "kind": "help", "name": "Emergency (Police / Fire / Ambulance)", "lat": 22.8930958, "lng": 88.412472, "address": "All-India emergency number", "phone": "112", "source": "seed" },
+    { "kind": "help", "name": "Ambulance", "lat": 22.8949254, "lng": 88.4288618, "address": "Naihati State General Hospital", "phone": "102", "source": "seed" },
+    { "kind": "help", "name": "Women's helpline", "lat": 22.8886, "lng": 88.4207, "address": "West Bengal", "phone": "1091", "source": "seed" },
+    { "kind": "help", "name": "Child helpline", "lat": 22.8886, "lng": 88.4207, "address": "India", "phone": "1098", "source": "seed" },
+    { "kind": "help", "name": "Disaster management / district control room", "lat": 22.8886, "lng": 88.4207, "address": "North 24 Parganas", "phone": "1070", "source": "seed" }
+  ]
+}

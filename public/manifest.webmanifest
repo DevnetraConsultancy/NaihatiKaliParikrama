@@ -1,0 +1,27 @@
+{
+  "name": "NaihatiKaliParikrama — নৈহাটি কালীপূজা পরিক্রমা",
+  "short_name": "নৈহাটি পরিক্রমা",
+  "description": "Live Kali Puja pandal map for Naihati with walking routes, travel time, live crowd levels and nearby hospital, police, toilet and food stops.",
+  "start_url": "/map",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#07060e",
+  "theme_color": "#07060e",
+  "lang": "bn",
+  "categories": ["navigation", "travel", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

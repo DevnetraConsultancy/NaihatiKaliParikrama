@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Naihati Kali Puja Parikrama">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1436" />
+      <stop offset="100%" stop-color="#07060e" />
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffe6a8" />
+      <stop offset="100%" stop-color="#f5c76a" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  <circle cx="256" cy="256" r="176" fill="none" stroke="#f5c76a" stroke-opacity="0.18" stroke-width="10" />
+  <circle cx="256" cy="256" r="132" fill="none" stroke="#f5c76a" stroke-opacity="0.12" stroke-width="6" />
+  <path d="M256 392c-52 0-96-40-96-90 0-62 60-96 96-176 36 80 96 114 96 176 0 50-44 90-96 90z" fill="url(#gold)" />
+  <circle cx="256" cy="300" r="34" fill="#1a1436" />
+  <path d="M256 226c14 30 30 44 30 66 0 17-13 28-30 28s-30-11-30-28c0-22 16-36 30-66z" fill="#fff8e3" />
+  <circle cx="256" cy="452" r="8" fill="#ff5f7e" />
+  <circle cx="180" cy="436" r="6" fill="#3dd6c0" />
+  <circle cx="332" cy="436" r="6" fill="#ff5f7e" />
+</svg>
