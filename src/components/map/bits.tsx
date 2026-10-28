@@ -177,6 +177,12 @@ export function PandalRow({
 }
 
 function FacilityIcon({ kind }: { kind: string }) {
+  if (kind === "police") {
+    return <img src="/police-pin.webp" alt="Police" className="size-5.5 rounded-full object-contain" />;
+  }
+  if (kind === "hospital") {
+    return <img src="/hospital-pin.webp" alt="Hospital" className="size-5.5 rounded-full object-contain" />;
+  }
   const size = 15;
   switch (kind) {
     case "hospital":

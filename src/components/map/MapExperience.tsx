@@ -8,6 +8,7 @@ import {
   CrosshairIcon,
   HospitalIcon,
   ListIcon,
+  MapIcon,
   MapPinIcon,
   MinusIcon,
   MoonIcon,
@@ -651,11 +652,20 @@ export default function MapExperience() {
 
             <button
               type="button"
-              onClick={() => setShowListDrawer((v) => !v)}
+              onClick={() => {
+                if (showListDrawer) {
+                  setShowListDrawer(false);
+                } else {
+                  setActiveSlug(null);
+                  setActiveFacility(null);
+                  setShowListDrawer(true);
+                }
+              }}
               className="glass-strong liquid-press flex h-10 shrink-0 items-center gap-1.5 rounded-2xl px-3 text-[12px] font-semibold text-gold shadow-lg"
+              title={showListDrawer ? (lang === "bn" ? "ম্যাপ দেখুন" : "View Map") : (lang === "bn" ? "তালিকা দেখুন" : "View List")}
             >
-              <ListIcon size={15} />
-              <span>{lang === "bn" ? "তালিকা" : "List"}</span>
+              {showListDrawer ? <MapIcon size={15} /> : <ListIcon size={15} />}
+              <span>{showListDrawer ? (lang === "bn" ? "ম্যাপ" : "Map") : (lang === "bn" ? "তালিকা" : "List")}</span>
             </button>
 
             <button
@@ -1031,8 +1041,14 @@ export default function MapExperience() {
             /* 3. SELECTED EMERGENCY FACILITY PIN ACTION CARD */
             <div className="glass-strong sheet-enter rounded-3xl border border-sky-400/40 p-3.5 shadow-2xl">
               <div className="flex items-start gap-3">
-                <div className="grid size-12 shrink-0 place-items-center rounded-2xl border border-sky-400/30 bg-sky-500/15 text-sky-300">
-                  <FacilityChipIcon kind={activeFacility.kind} size={22} />
+                <div className="grid size-12 shrink-0 place-items-center rounded-2xl border border-sky-400/30 bg-sky-500/15 overflow-hidden">
+                  {activeFacility.kind === "police" ? (
+                    <img src="/police-pin.webp" alt="Police" className="size-11 rounded-xl object-contain shadow-md" />
+                  ) : activeFacility.kind === "hospital" ? (
+                    <img src="/hospital-pin.webp" alt="Hospital" className="size-11 rounded-xl object-contain shadow-md" />
+                  ) : (
+                    <FacilityChipIcon kind={activeFacility.kind} size={22} />
+                  )}
                 </div>
 
                 <div className="min-w-0 flex-1">

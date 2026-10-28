@@ -75,13 +75,19 @@ export default function AppHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="safe-top header-alpona sticky top-0 z-[700] border-b border-gold/25 shadow-lg shadow-black/60 backdrop-blur-xl relative overflow-hidden">
-      {/* Large rotating Golden Mandala Art (only 1/4 visible in top-right corner) */}
+    <header className="safe-top sticky top-0 z-[700] border-b border-white/[0.10] bg-[#0b0514]/65 backdrop-blur-2xl backdrop-saturate-150 shadow-[0_8px_32px_rgba(0,0,0,0.7)] relative overflow-hidden">
+      {/* Top Glass Luminous Highlight Line */}
+      <div className="pointer-events-none absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-gold/45 to-transparent z-20" />
+
+      {/* Ambient Divine Warmth Glow */}
+      <div className="pointer-events-none absolute -top-8 left-12 h-20 w-48 rounded-full bg-amber-500/10 blur-2xl z-0" />
+
+      {/* Minimal, Ethereal Rotating Golden Mandala (Subtle Corner Watermark) */}
       <div
-        className="pointer-events-none absolute -top-16 -right-16 size-48 sm:size-56 overflow-hidden select-none z-0"
+        className="pointer-events-none absolute -top-16 -right-16 size-48 sm:size-56 overflow-hidden select-none z-0 [mask-image:radial-gradient(circle_at_top_right,black_45%,transparent_85%)]"
         aria-hidden="true"
       >
-        <div className="size-full opacity-35 filter blur-[0.2px] animate-spin-slow origin-center">
+        <div className="size-full opacity-[0.16] filter blur-[0.2px] animate-spin-slow origin-center">
           <Image
             src="/golden-mandala.webp"
             alt=""
@@ -96,7 +102,7 @@ export default function AppHeader() {
       <div className="relative z-10 mx-auto flex h-16 w-full max-w-2xl items-center justify-between gap-2.5 px-3.5">
         {/* Brand Group: Prominent Logo + Bold Clear Title */}
         <Link href="/" className="group flex min-w-0 items-center gap-3">
-          <div className="relative size-11 shrink-0 overflow-hidden rounded-full border-2 border-gold/85 shadow-[0_0_12px_rgba(245,199,106,0.55)] transition-transform group-hover:scale-105 bg-ink p-0.5">
+          <div className="relative size-11 shrink-0 overflow-hidden rounded-full border-2 border-gold/85 shadow-[0_0_14px_rgba(245,199,106,0.5)] transition-transform group-hover:scale-105 bg-ink p-0.5 ring-1 ring-gold/30">
             <Image
               src="/boro-maa-emblem.png"
               alt="Naihati Boro Maa"
@@ -134,16 +140,19 @@ export default function AppHeader() {
           ))}
         </nav>
 
-        {/* Right Section: Header Diya + Language Toggle */}
+        {/* Right Section: Header Diya + Glassy Language Toggle */}
         <div className="flex shrink-0 items-center gap-2.5">
-          {/* Auspicious Diya */}
-          <HeaderDiya size={22} />
+          {/* Auspicious Diya with Subtle Warmth */}
+          <div className="relative">
+            <div className="pointer-events-none absolute -inset-1 rounded-full bg-amber-500/20 blur-sm" />
+            <HeaderDiya size={22} />
+          </div>
 
-          {/* Language Switch Button */}
+          {/* Glassy Language Switch Button */}
           <button
             type="button"
             onClick={toggle}
-            className="liquid-press shrink-0 rounded-full border border-gold/40 bg-ink/70 px-2.5 py-0.5 text-[11.5px] font-semibold text-gold transition-colors hover:border-gold/70 shadow-sm"
+            className="liquid-press shrink-0 rounded-full border border-white/20 bg-white/[0.08] backdrop-blur-md px-3 py-1 text-[11.5px] font-bold text-gold transition-colors hover:bg-white/[0.14] hover:border-gold/60 shadow-sm"
             aria-label="Switch language"
           >
             {lang === "bn" ? "EN" : "বাংলা"}

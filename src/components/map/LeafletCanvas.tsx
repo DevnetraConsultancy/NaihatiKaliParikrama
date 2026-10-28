@@ -103,6 +103,24 @@ function pinIcon(category: PandalCategory, active: boolean, isDivine = false): L
 }
 
 function facilityIcon(kind: string, active = false): L.DivIcon {
+  if (kind === "police" || kind === "hospital") {
+    const isPolice = kind === "police";
+    const imgUrl = isPolice ? "/police-pin.webp" : "/hospital-pin.webp";
+    const label = isPolice ? "Police" : "Hospital";
+    return L.divIcon({
+      className: "nkp-facility-pin-wrapper",
+      html: `<div class="nkp-facility-pin nkp-facility-pin--${kind}${active ? " nkp-facility-pin--active" : ""}">
+        <div class="nkp-facility-pin__head">
+          <img src="${imgUrl}" alt="${label}" class="nkp-facility-pin__img" loading="eager" />
+        </div>
+        <div class="nkp-facility-pin__tip nkp-facility-pin__tip--${kind}"></div>
+      </div>`,
+      iconSize: [36, 44],
+      iconAnchor: [18, 42],
+      popupAnchor: [0, -38],
+    });
+  }
+
   return L.divIcon({
     className: "nkp-facility-wrapper",
     html: `<span class="nkp-facility${active ? " nkp-facility--active" : ""}">${facilitySvg(kind)}</span>`,
