@@ -489,6 +489,7 @@ export default function MapExperience() {
         nightMode={nightMode}
         fitRoute={fitRoute}
         lang={lang}
+        onUserPan={() => setFollow(false)}
         onSelectPandal={(slug) => {
           setActiveSlug(slug);
           setActiveFacility(null);
@@ -892,9 +893,13 @@ export default function MapExperience() {
             <div className="glass-strong sheet-enter max-h-[62dvh] overflow-y-auto rounded-3xl border border-gold/40 p-3.5 shadow-2xl no-scrollbar">
               <div className="flex items-start gap-3">
                 <img
-                  src="/kali-pin.jpg"
+                  src={activePandal.slug === "naihati-boromaa-kali-puja" ? "/boro-maa-emblem.png" : "/kali-mandala.webp"}
                   alt={activePandal.name_en}
-                  className="size-13 shrink-0 rounded-full border-2 border-gold object-cover shadow-md"
+                  className={`size-13 shrink-0 rounded-full border-2 ${
+                    activePandal.slug === "naihati-boromaa-kali-puja"
+                      ? "border-amber-300 ring-2 ring-gold/70 shadow-[0_0_12px_rgba(245,199,106,0.6)]"
+                      : "border-gold shadow-md"
+                  } object-cover`}
                 />
 
                 <div className="min-w-0 flex-1">
@@ -1130,9 +1135,11 @@ export default function MapExperience() {
                     className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                   >
                     <img
-                      src="/kali-pin.jpg"
+                      src={nextPandal.slug === "naihati-boromaa-kali-puja" ? "/boro-maa-emblem.png" : "/kali-pin.webp"}
                       alt=""
-                      className="size-10 shrink-0 rounded-full border border-gold object-cover"
+                      className={`size-10 shrink-0 rounded-full border ${
+                        nextPandal.slug === "naihati-boromaa-kali-puja" ? "border-amber-300 ring-1 ring-gold" : "border-gold"
+                      } object-cover`}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">

@@ -75,48 +75,43 @@ export default function AppHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="safe-top header-alpona sticky top-0 z-[700] border-b border-gold/20 shadow-lg shadow-black/50 backdrop-blur-xl relative overflow-hidden">
-      {/* Large blurred semi-transparent rotating corner Alpona (only 1/4 visible in top-right corner) */}
+    <header className="safe-top header-alpona sticky top-0 z-[700] border-b border-gold/25 shadow-lg shadow-black/60 backdrop-blur-xl relative overflow-hidden">
+      {/* Large rotating Golden Mandala Art (only 1/4 visible in top-right corner) */}
       <div
         className="pointer-events-none absolute -top-16 -right-16 size-48 sm:size-56 overflow-hidden select-none z-0"
         aria-hidden="true"
       >
-        <div className="size-full opacity-25 filter blur-[0.4px] animate-spin-slow origin-center">
-          <svg viewBox="0 0 100 100" className="size-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="50" cy="50" r="47" stroke="#f5c76a" strokeWidth="2" strokeDasharray="5 4" opacity="0.85" />
-            <circle cx="50" cy="50" r="34" stroke="#ffe6a8" strokeWidth="1.6" opacity="0.75" />
-            <circle cx="50" cy="50" r="22" stroke="#f5c76a" strokeWidth="1.2" strokeDasharray="3 3" opacity="0.8" />
-            {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => (
-              <g key={deg} transform={`rotate(${deg} 50 50)`}>
-                <line x1="50" y1="6" x2="50" y2="46" stroke="#f5c76a" strokeWidth="1.6" strokeLinecap="round" />
-                <circle cx="50" cy="6" r="2.2" fill="#f5c76a" />
-              </g>
-            ))}
-            <circle cx="50" cy="50" r="10" fill="#f5c76a" opacity="0.85" />
-            <circle cx="50" cy="50" r="4" fill="#14071e" />
-          </svg>
+        <div className="size-full opacity-35 filter blur-[0.2px] animate-spin-slow origin-center">
+          <Image
+            src="/golden-mandala.webp"
+            alt=""
+            width={224}
+            height={224}
+            className="size-full object-contain"
+            priority
+          />
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto flex h-14 w-full max-w-2xl items-center justify-between gap-2 px-3">
-        {/* Brand Group: Clean Logo + Non-overlapping Title */}
-        <Link href="/" className="group flex min-w-0 items-center gap-2.5">
-          <div className="relative size-8.5 shrink-0 overflow-hidden rounded-full border border-gold/70 shadow-[0_0_10px_rgba(245,199,106,0.4)] transition-transform group-hover:scale-105 bg-ink">
+      <div className="relative z-10 mx-auto flex h-16 w-full max-w-2xl items-center justify-between gap-2.5 px-3.5">
+        {/* Brand Group: Prominent Logo + Bold Clear Title */}
+        <Link href="/" className="group flex min-w-0 items-center gap-3">
+          <div className="relative size-11 shrink-0 overflow-hidden rounded-full border-2 border-gold/85 shadow-[0_0_12px_rgba(245,199,106,0.55)] transition-transform group-hover:scale-105 bg-ink p-0.5">
             <Image
               src="/boro-maa-emblem.png"
               alt="Naihati Boro Maa"
-              width={34}
-              height={34}
-              className="size-full object-cover"
+              width={44}
+              height={44}
+              className="size-full rounded-full object-cover"
               priority
             />
           </div>
 
           <div className="min-w-0 flex flex-col justify-center">
-            <span className="text-[13.5px] sm:text-[14.5px] font-bold text-white tracking-tight truncate leading-tight">
+            <span className="text-[15.5px] sm:text-[17px] font-extrabold text-white tracking-tight truncate leading-tight drop-shadow-sm">
               {lang === "bn" ? "নৈহাটি কালীপূজা" : "Naihati Kali Puja"}
             </span>
-            <span className="text-[10px] font-medium text-gold/80 tracking-wide truncate leading-tight">
+            <span className="text-[11px] sm:text-[12px] font-semibold text-gold tracking-wide truncate leading-tight mt-0.5">
               {lang === "bn" ? "পরিক্রমা ২০২৬" : "Parikrama 2026"}
             </span>
           </div>

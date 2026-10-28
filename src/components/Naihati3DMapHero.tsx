@@ -119,7 +119,7 @@ function createPandalPin(
   pinGroup.position.set(x, 0.06, z);
 
   // 1. Golden base ring on the terrain
-  const baseRadius = isBoroMaa ? 0.7 : 0.4;
+  const baseRadius = isBoroMaa ? 1.05 : 0.38;
   const baseGeo = new THREE.RingGeometry(0.08, baseRadius, 20);
   const baseMat = new THREE.MeshBasicMaterial({
     color: isBoroMaa ? 0xf5c76a : 0xffe6a8,
@@ -132,7 +132,7 @@ function createPandalPin(
   pinGroup.add(baseMesh);
 
   // 2. Slender golden spire stem
-  const stemHeight = isBoroMaa ? 1.8 : 1.35;
+  const stemHeight = isBoroMaa ? 2.4 : 1.35;
   const stemGeo = new THREE.CylinderGeometry(0.04, 0.05, stemHeight, 8);
   const stemMat = new THREE.MeshStandardMaterial({
     color: 0xf5c76a,
@@ -146,11 +146,11 @@ function createPandalPin(
 
   // 3. Billboarded Medallion Head (always faces the user's camera)
   const billboard = new THREE.Group();
-  billboard.position.y = stemHeight + (isBoroMaa ? 0.6 : 0.42);
+  billboard.position.y = stemHeight + (isBoroMaa ? 0.85 : 0.42);
   pinGroup.add(billboard);
   pinGroup.userData.billboard = billboard;
 
-  const headRadius = isBoroMaa ? 0.68 : 0.48;
+  const headRadius = isBoroMaa ? 0.95 : 0.46;
 
   // Front face:
   // - Boro Maa Photo ONLY for Boro Maa

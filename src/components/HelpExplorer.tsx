@@ -81,20 +81,28 @@ export default function HelpExplorer() {
 
   // Initialize immediately with bundled seed data for instant 0ms initial load
   const [facilities, setFacilities] = useState<Facility[]>(INITIAL_FACILITIES);
-  const [helplines, setHelplines] = useState<Facility[]>(INITIAL_HELPLINES);
   const [loading, setLoading] = useState(false);
-  const [source, setSource] = useState<string>("seed");
   const [routes, setRoutes] = useState<Record<string, string>>({});
 
   const origin = geo.position ?? NAIHATI_CENTER;
   const lastFetchedOriginRef = useRef<LatLng | null>(null);
 
+  // Synchronously compute distances on the client so layout never shifts on first load or GPS arrival
+  const facilitiesWithDistance = useMemo(() => {
+    return facilities
+      .map((facility) => ({
+        ...facility,
+        distance: Math.round(haversine(origin, { lat: facility.lat, lng: facility.lng })),
+      }))
+      .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+  }, [facilities, origin]);
+
   const load = useCallback(async (forced = false) => {
-    // Only re-fetch if forced or if origin has moved more than 150 meters
+    // Only re-fetch if forced or if origin has moved more than 200 meters
     if (
       !forced &&
       lastFetchedOriginRef.current &&
-      haversine(origin, lastFetchedOriginRef.current) < 150
+      haversine(origin, lastFetchedOriginRef.current) < 200
     ) {
       return;
     }
@@ -103,16 +111,19 @@ export default function HelpExplorer() {
     setLoading(true);
 
     try {
-      const [nearby, help] = await Promise.all([
-        fetchNearby(origin.lat, origin.lng, kinds, radius),
-        fetchNearby(NAIHATI_CENTER.lat, NAIHATI_CENTER.lng, ["help"], 6000),
-      ]);
+      const nearby = await fetchNearby(origin.lat, origin.lng, kinds, radius);
       if (nearby.facilities.length > 0) {
-        setFacilities(nearby.facilities);
-        setSource(nearby.source);
-      }
-      if (help.facilities.length > 0) {
-        setHelplines(help.facilities);
+        // Merge without thrashing or shifting existing items
+        setFacilities((prev) => {
+          const map = new Map<string, Facility>();
+          for (const item of prev) {
+            map.set(`${item.kind}:${item.name}`, item);
+          }
+          for (const item of nearby.facilities) {
+            map.set(`${item.kind}:${item.name}`, item);
+          }
+          return Array.from(map.values());
+        });
       }
     } catch (err) {
       console.warn("Help data load fallback to seed", err);
@@ -127,14 +138,14 @@ export default function HelpExplorer() {
 
   const grouped = useMemo(() => {
     const map = new Map<string, Facility[]>();
-    for (const facility of facilities) {
+    for (const facility of facilitiesWithDistance) {
       if (!kinds.includes(facility.kind)) continue;
       const list = map.get(String(facility.kind)) ?? [];
       list.push(facility);
       map.set(String(facility.kind), list);
     }
     return [...map.entries()];
-  }, [facilities, kinds]);
+  }, [facilitiesWithDistance, kinds]);
 
   const toggleKind = (kind: string) =>
     setKinds((current) =>
@@ -183,10 +194,10 @@ export default function HelpExplorer() {
         </div>
 
         <div className="mt-2.5 divide-y divide-white/5">
-          {helplines.map((item) => (
+          {INITIAL_HELPLINES.map((item) => (
             <div
               key={`${item.name}-${item.phone}`}
-              className="flex items-center justify-between py-2 text-[12.5px]"
+              className="flex min-h-[44px] items-center justify-between py-2 text-[12.5px]"
             >
               <div>
                 <p className="font-medium text-white">{item.name}</p>
@@ -209,8 +220,9 @@ export default function HelpExplorer() {
       {/* Facility filters */}
       <section className="mt-4">
         <div className="flex items-center justify-between">
-          <p className="text-[12.5px] font-semibold text-white">
-            {lang === "bn" ? "প্রয়োজনীয় পরিষেবা ফিল্টার" : "Filter essential stops"}
+          <p className="flex items-center text-[12.5px] font-semibold text-white">
+            <span>{lang === "bn" ? "প্রয়োজনীয় পরিষেবা ফিল্টার" : "Filter essential stops"}</span>
+            {loading ? <span className="ml-2 inline-block size-1.5 animate-ping rounded-full bg-gold" /> : null}
           </p>
           <div className="flex items-center gap-1 text-[11px]">
             {RADII.map((val) => (

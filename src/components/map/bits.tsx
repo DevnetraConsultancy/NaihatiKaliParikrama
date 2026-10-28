@@ -214,7 +214,7 @@ export function FacilityRow({
   routeInfo?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
+    <div className="flex min-h-[58px] flex-col justify-center gap-1 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
       <div className="flex items-center gap-3">
         <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/8">
           <FacilityIcon kind={facility.kind} />

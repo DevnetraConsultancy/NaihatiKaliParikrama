@@ -60,45 +60,45 @@ function pinIcon(category: PandalCategory, active: boolean, isDivine = false): L
   if (isDivine) {
     return L.divIcon({
       className: "nkp-pin-wrapper nkp-pin-wrapper--divine",
-      html: `<span class="nkp-pin nkp-pin--divine${active ? " nkp-pin--active" : ""}">
-        <span class="nkp-divine-aura"></span>
-        <svg class="nkp-divine-crown" viewBox="0 0 28 14" width="28" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M14 0L17 5L22 2L20 8H8L6 2L11 5L14 0Z" fill="url(#crownGold)"/>
-          <circle cx="14" cy="2" r="1.5" fill="#ff4d4d"/>
-          <circle cx="7" cy="3" r="1" fill="#ffeaa7"/>
-          <circle cx="21" cy="3" r="1" fill="#ffeaa7"/>
-          <circle cx="14" cy="7" r="1.2" fill="#ffeaa7"/>
+      html: `<div class="nkp-pin nkp-pin--divine${active ? " nkp-pin--active" : ""}">
+        <div class="nkp-divine-aura"></div>
+        <svg class="nkp-divine-crown" viewBox="0 0 32 16" width="32" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16 0L20 6L26 2L24 10H8L6 2L12 6L16 0Z" fill="url(#crownGold)"/>
+          <circle cx="16" cy="2.5" r="1.8" fill="#ef4444"/>
+          <circle cx="8" cy="3.5" r="1.3" fill="#ffeaa7"/>
+          <circle cx="24" cy="3.5" r="1.3" fill="#ffeaa7"/>
+          <circle cx="16" cy="8" r="1.4" fill="#ffeaa7"/>
           <defs>
-            <linearGradient id="crownGold" x1="6" y1="0" x2="22" y2="8" gradientUnits="userSpaceOnUse">
+            <linearGradient id="crownGold" x1="6" y1="0" x2="26" y2="10" gradientUnits="userSpaceOnUse">
               <stop stop-color="#fff5c0"/>
               <stop offset="0.5" stop-color="#f5c76a"/>
               <stop offset="1" stop-color="#b8860b"/>
             </linearGradient>
           </defs>
         </svg>
-        <span class="nkp-pin__head nkp-pin__head--divine">
-          <img src="/boro-maa-emblem.png" alt="Boro Maa" class="nkp-pin__img" loading="eager" />
-        </span>
-        <span class="nkp-pin__tip nkp-pin__tip--divine"></span>
-      </span>`,
-      iconSize: [52, 64],
-      iconAnchor: [26, 62],
-      popupAnchor: [0, -56],
+        <div class="nkp-pin__head nkp-pin__head--divine">
+          <img src="/boro-maa-emblem.png" alt="Naihati Boro Maa" class="nkp-pin__img" loading="eager" />
+        </div>
+        <div class="nkp-pin__tip nkp-pin__tip--divine"></div>
+      </div>`,
+      iconSize: [64, 82],
+      iconAnchor: [32, 80],
+      popupAnchor: [0, -72],
     });
   }
 
   return L.divIcon({
     className: "nkp-pin-wrapper",
-    html: `<span class="nkp-pin nkp-pin--${category}${active ? " nkp-pin--active" : ""}">
-        ${active ? '<span class="nkp-pin__pulse"></span>' : ""}
-        <span class="nkp-pin__head">
+    html: `<div class="nkp-pin nkp-pin--${category}${active ? " nkp-pin--active" : ""}">
+        ${active ? '<div class="nkp-pin__pulse"></div>' : ""}
+        <div class="nkp-pin__head">
           <img src="/kali-mandala.webp" alt="Maa Kali" class="nkp-pin__img" loading="eager" />
-        </span>
-        <span class="nkp-pin__tip"></span>
-      </span>`,
-    iconSize: [42, 50],
-    iconAnchor: [21, 48],
-    popupAnchor: [0, -44],
+        </div>
+        <div class="nkp-pin__tip"></div>
+      </div>`,
+    iconSize: [38, 48],
+    iconAnchor: [19, 46],
+    popupAnchor: [0, -42],
   });
 }
 
@@ -147,6 +147,7 @@ export interface LeafletCanvasProps {
   onSelectFacility?: (facility: Facility) => void;
   onMapClick?: (point: LatLng) => void;
   onReady?: (map: LeafletMap) => void;
+  onUserPan?: () => void;
   className?: string;
 }
 
@@ -173,6 +174,7 @@ export default function LeafletCanvas({
   onSelectFacility,
   onMapClick,
   onReady,
+  onUserPan,
   className,
 }: LeafletCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -188,6 +190,7 @@ export default function LeafletCanvas({
   const selectFacilityRef = useRef(onSelectFacility);
   const clickRef = useRef(onMapClick);
   const readyRef = useRef(onReady);
+  const onUserPanRef = useRef(onUserPan);
 
   // Persistent geometry refs to avoid Android re-render thrashing & flickering
   const userMarkerRef = useRef<Marker | null>(null);
@@ -202,6 +205,7 @@ export default function LeafletCanvas({
   selectFacilityRef.current = onSelectFacility;
   clickRef.current = onMapClick;
   readyRef.current = onReady;
+  onUserPanRef.current = onUserPan;
 
   // ------------------------------------------------------------------ init
   useEffect(() => {
@@ -218,7 +222,14 @@ export default function LeafletCanvas({
       inertiaMaxSpeed: 1500,
       zoomAnimation: true,
       wheelPxPerZoomLevel: 120,
+      touchZoom: true,
+      bounceAtZoomLimits: false,
     });
+
+    // Disable legacy emulated tap to ensure butter-smooth Android touch panning
+    if ((map as any).tap) {
+      (map as any).tap.disable();
+    }
 
     // High performance tile configuration:
     L.tileLayer(TILE_URL, {
@@ -238,6 +249,16 @@ export default function LeafletCanvas({
 
     map.on("click", (event: L.LeafletMouseEvent) => {
       clickRef.current?.({ lat: event.latlng.lat, lng: event.latlng.lng });
+    });
+
+    map.on("dragstart", () => {
+      onUserPanRef.current?.();
+    });
+
+    map.on("movestart", (e: any) => {
+      if (e?.originalEvent) {
+        onUserPanRef.current?.();
+      }
     });
 
     mapRef.current = map;
