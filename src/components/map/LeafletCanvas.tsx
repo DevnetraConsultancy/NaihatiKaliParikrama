@@ -2,7 +2,14 @@
 
 import { useEffect, useRef } from "react";
 import L from "leaflet";
-import type { Circle, LayerGroup, Map as LeafletMap, Marker, Polyline } from "leaflet";
+import type {
+  Circle,
+  CircleMarker,
+  LayerGroup,
+  Map as LeafletMap,
+  Marker,
+  Polyline,
+} from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type {
   Facility,
@@ -45,7 +52,41 @@ function facilitySvg(kind: string): string {
   }
 }
 
-function pinIcon(category: PandalCategory, active: boolean): L.DivIcon {
+function isDivinePandal(slug: string, featured?: boolean): boolean {
+  return slug === "naihati-boromaa-kali-puja" || slug.includes("boromaa");
+}
+
+function pinIcon(category: PandalCategory, active: boolean, isDivine = false): L.DivIcon {
+  if (isDivine) {
+    return L.divIcon({
+      className: "nkp-pin-wrapper nkp-pin-wrapper--divine",
+      html: `<span class="nkp-pin nkp-pin--divine${active ? " nkp-pin--active" : ""}">
+        <span class="nkp-divine-aura"></span>
+        <svg class="nkp-divine-crown" viewBox="0 0 28 14" width="28" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 0L17 5L22 2L20 8H8L6 2L11 5L14 0Z" fill="url(#crownGold)"/>
+          <circle cx="14" cy="2" r="1.5" fill="#ff4d4d"/>
+          <circle cx="7" cy="3" r="1" fill="#ffeaa7"/>
+          <circle cx="21" cy="3" r="1" fill="#ffeaa7"/>
+          <circle cx="14" cy="7" r="1.2" fill="#ffeaa7"/>
+          <defs>
+            <linearGradient id="crownGold" x1="6" y1="0" x2="22" y2="8" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#fff5c0"/>
+              <stop offset="0.5" stop-color="#f5c76a"/>
+              <stop offset="1" stop-color="#b8860b"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="nkp-pin__head nkp-pin__head--divine">
+          <img src="/boro-maa-emblem.png" alt="Boro Maa" class="nkp-pin__img" loading="eager" />
+        </span>
+        <span class="nkp-pin__tip nkp-pin__tip--divine"></span>
+      </span>`,
+      iconSize: [52, 64],
+      iconAnchor: [26, 62],
+      popupAnchor: [0, -56],
+    });
+  }
+
   return L.divIcon({
     className: "nkp-pin-wrapper",
     html: `<span class="nkp-pin nkp-pin--${category}${active ? " nkp-pin--active" : ""}">
@@ -85,14 +126,6 @@ function userIcon(lang: Lang = "bn"): L.DivIcon {
   });
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 export function facilityKey(facility: Facility): string {
   return facility.osm_id ?? `${facility.kind}:${facility.name}:${facility.lat.toFixed(5)},${facility.lng.toFixed(5)}`;
 }
@@ -119,10 +152,10 @@ export interface LeafletCanvasProps {
 
 /**
  * Interactive Naihati Map Canvas:
- * - Renders all 28 pandals using the circular Maa Kali portrait pin (/kali-pin.jpg)
- * - Renders all emergency services & utility pins (clickable for directions)
- * - Renders the user's live GPS location beacon
- * - Renders Google Maps-style live animated polyline routes
+ * - Divine Theme for Naihati Boro Maa (Golden Mukut Crown, radiating aura, sacred emblem)
+ * - Renders all 28 pandals with zero-lag smooth rendering
+ * - Renders all emergency services & utility pins
+ * - Smooth Android navigation without tile flickering or coordinate jitter
  */
 export default function LeafletCanvas({
   pandals,
@@ -157,6 +190,15 @@ export default function LeafletCanvas({
   const clickRef = useRef(onMapClick);
   const readyRef = useRef(onReady);
 
+  // Persistent geometry refs to avoid Android re-render thrashing & flickering
+  const userMarkerRef = useRef<Marker | null>(null);
+  const userCircleRef = useRef<Circle | null>(null);
+  const routeLineRef = useRef<Polyline | null>(null);
+  const routeCasingRef = useRef<Polyline | null>(null);
+  const routeConnectorRef = useRef<Polyline | null>(null);
+  const destMarkerRef = useRef<CircleMarker | null>(null);
+  const lastRouteKeyRef = useRef<string | null>(null);
+
   selectPandalRef.current = onSelectPandal;
   selectFacilityRef.current = onSelectFacility;
   clickRef.current = onMapClick;
@@ -173,17 +215,23 @@ export default function LeafletCanvas({
       attributionControl: true,
       preferCanvas: true,
       inertia: true,
+      inertiaDeceleration: 3000,
+      inertiaMaxSpeed: 1500,
       zoomAnimation: true,
       wheelPxPerZoomLevel: 120,
     });
 
+    // High performance tile configuration:
+    // keepBuffer: 8 ensures smooth panning without grey tile flashes on Android
+    // updateWhenIdle: false ensures continuous progressive loading
     L.tileLayer(TILE_URL, {
       attribution: TILE_ATTRIBUTION,
       maxZoom: 19,
       subdomains: "abc",
-      keepBuffer: 3,
-      updateWhenIdle: true,
-      updateWhenZooming: false,
+      keepBuffer: 8,
+      updateWhenIdle: false,
+      updateWhenZooming: true,
+      updateInterval: 80,
     }).addTo(map);
 
     routeLayerRef.current = L.layerGroup().addTo(map);
@@ -220,6 +268,12 @@ export default function LeafletCanvas({
       mapRef.current = null;
       pandalMarkersRef.current.clear();
       facilityMarkersRef.current.clear();
+      userMarkerRef.current = null;
+      userCircleRef.current = null;
+      routeLineRef.current = null;
+      routeCasingRef.current = null;
+      routeConnectorRef.current = null;
+      destMarkerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -239,12 +293,13 @@ export default function LeafletCanvas({
     pandalMarkersRef.current.clear();
 
     for (const pandal of pandals) {
+      const isDivine = isDivinePandal(pandal.slug, pandal.featured);
       const isActive = pandal.slug === activeSlug;
       const marker = L.marker([pandal.lat, pandal.lng], {
-        icon: pinIcon(pandal.category, isActive),
+        icon: pinIcon(pandal.category, isActive, isDivine),
         title: lang === "bn" ? pandal.name_bn : pandal.name_en,
         riseOnHover: true,
-        zIndexOffset: isActive ? 1000 : pandal.featured ? 300 : 100,
+        zIndexOffset: isActive ? 3000 : isDivine ? 2500 : pandal.featured ? 300 : 100,
       });
 
       marker.on("click", (e) => {
@@ -265,10 +320,11 @@ export default function LeafletCanvas({
     for (const pandal of pandals) {
       const marker = pandalMarkersRef.current.get(pandal.slug);
       if (!marker) continue;
+      const isDivine = isDivinePandal(pandal.slug, pandal.featured);
       const isActive = pandal.slug === activeSlug;
-      marker.setIcon(pinIcon(pandal.category, isActive));
+      marker.setIcon(pinIcon(pandal.category, isActive, isDivine));
       if (isActive) {
-        marker.setZIndexOffset(1000);
+        marker.setZIndexOffset(3000);
         if (activeSlug && flownToRef.current !== `pandal:${activeSlug}` && !fitRoute) {
           flownToRef.current = `pandal:${activeSlug}`;
           map.flyTo([pandal.lat, pandal.lng], Math.max(map.getZoom(), 16), {
@@ -277,7 +333,7 @@ export default function LeafletCanvas({
           });
         }
       } else {
-        marker.setZIndexOffset(pandal.featured ? 300 : 100);
+        marker.setZIndexOffset(isDivine ? 2500 : pandal.featured ? 300 : 100);
       }
     }
     if (!activeSlug && !activeFacilityKey) flownToRef.current = null;
@@ -334,99 +390,180 @@ export default function LeafletCanvas({
   }, [activeFacilityKey, fitRoute]);
 
   // ------------------------------------------------------------------ route
+  // Smoothly updates route polylines via setLatLngs() without clearLayers() paint thrashing
   useEffect(() => {
     const map = mapRef.current;
     const layer = routeLayerRef.current;
     if (!map || !layer) return;
-    layer.clearLayers();
-    if (!route || route.geometry.length < 2) return;
 
-    // 1. Live connector dashed line from user's exact GPS to route start
-    if (user) {
+    if (!route || route.geometry.length < 2) {
+      if (routeLineRef.current) {
+        routeLineRef.current.remove();
+        routeLineRef.current = null;
+      }
+      if (routeCasingRef.current) {
+        routeCasingRef.current.remove();
+        routeCasingRef.current = null;
+      }
+      if (destMarkerRef.current) {
+        destMarkerRef.current.remove();
+        destMarkerRef.current = null;
+      }
+      if (routeConnectorRef.current) {
+        routeConnectorRef.current.remove();
+        routeConnectorRef.current = null;
+      }
+      lastRouteKeyRef.current = null;
+      return;
+    }
+
+    const dest = route.geometry[route.geometry.length - 1];
+    const primaryColor = route.profile === "car" ? "#2563eb" : "#0284c7";
+    const routeKey = `${route.distance_m}:${route.duration_min}:${dest[0].toFixed(5)},${dest[1].toFixed(5)}:${route.profile}`;
+
+    // 1. Dark outer road casing (Google Maps style)
+    if (!routeCasingRef.current) {
+      routeCasingRef.current = L.polyline(route.geometry, {
+        color: "#070b19",
+        weight: 10,
+        opacity: 0.9,
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(layer);
+    } else {
+      routeCasingRef.current.setLatLngs(route.geometry);
+    }
+
+    // 2. Vibrant primary navigation line
+    if (!routeLineRef.current) {
+      routeLineRef.current = L.polyline(route.geometry, {
+        color: primaryColor,
+        weight: 6,
+        opacity: 0.98,
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(layer);
+    } else {
+      routeLineRef.current.setLatLngs(route.geometry);
+      routeLineRef.current.setStyle({ color: primaryColor });
+    }
+
+    // 3. Destination target ring
+    if (!destMarkerRef.current) {
+      destMarkerRef.current = L.circleMarker(dest, {
+        radius: 9,
+        color: "#f5c76a",
+        weight: 3,
+        fillColor: primaryColor,
+        fillOpacity: 1,
+      }).addTo(layer);
+    } else {
+      destMarkerRef.current.setLatLng(dest);
+      destMarkerRef.current.setStyle({ fillColor: primaryColor });
+    }
+
+    // 4. Fit bounds when route is first initialized
+    if (fitRoute && lastRouteKeyRef.current !== routeKey) {
+      lastRouteKeyRef.current = routeKey;
+      if (routeLineRef.current) {
+        map.fitBounds(routeLineRef.current.getBounds(), {
+          paddingTopLeft: [36, 130],
+          paddingBottomRight: [36, 220],
+          maxZoom: 17,
+        });
+      }
+    }
+  }, [route, fitRoute]);
+
+  // ----------------------------------------------------------- live position
+  // Direct coordinate updates without destroying/recreating DOM markers
+  useEffect(() => {
+    const map = mapRef.current;
+    const userLayer = userLayerRef.current;
+    const routeLayer = routeLayerRef.current;
+    if (!map || !userLayer) return;
+
+    if (!user) {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+      if (userCircleRef.current) {
+        userCircleRef.current.remove();
+        userCircleRef.current = null;
+      }
+      if (routeConnectorRef.current) {
+        routeConnectorRef.current.remove();
+        routeConnectorRef.current = null;
+      }
+      return;
+    }
+
+    // 1. User marker
+    if (!userMarkerRef.current) {
+      userMarkerRef.current = L.marker([user.lat, user.lng], {
+        icon: userIcon(lang),
+        interactive: false,
+        zIndexOffset: 1200,
+      }).addTo(userLayer);
+    } else {
+      userMarkerRef.current.setLatLng([user.lat, user.lng]);
+      userMarkerRef.current.setIcon(userIcon(lang));
+    }
+
+    // 2. User accuracy circle
+    if (user.accuracy && user.accuracy > 15) {
+      const radius = Math.min(user.accuracy, 280);
+      if (!userCircleRef.current) {
+        userCircleRef.current = L.circle([user.lat, user.lng], {
+          radius,
+          color: "#3b82f6",
+          weight: 1.2,
+          opacity: 0.45,
+          fillColor: "#3b82f6",
+          fillOpacity: 0.12,
+          interactive: false,
+        }).addTo(userLayer);
+      } else {
+        userCircleRef.current.setLatLng([user.lat, user.lng]);
+        userCircleRef.current.setRadius(radius);
+      }
+    } else if (userCircleRef.current) {
+      userCircleRef.current.remove();
+      userCircleRef.current = null;
+    }
+
+    // 3. Smooth connector line from user's live position to route start point
+    if (route && route.geometry && route.geometry.length > 0 && routeLayer) {
       const firstPt = route.geometry[0];
-      L.polyline(
-        [
-          [user.lat, user.lng],
-          [firstPt[0], firstPt[1]],
-        ],
-        {
+      const pts: [number, number][] = [
+        [user.lat, user.lng],
+        [firstPt[0], firstPt[1]],
+      ];
+      if (!routeConnectorRef.current) {
+        routeConnectorRef.current = L.polyline(pts, {
           color: "#38bdf8",
           weight: 4,
           opacity: 0.85,
           dashArray: "4 8",
-        },
-      ).addTo(layer);
+        }).addTo(routeLayer);
+      } else {
+        routeConnectorRef.current.setLatLngs(pts);
+      }
+    } else if (routeConnectorRef.current) {
+      routeConnectorRef.current.remove();
+      routeConnectorRef.current = null;
     }
 
-    // 2. Dark outer road casing (Google Maps style)
-    L.polyline(route.geometry, {
-      color: "#070b19",
-      weight: 10,
-      opacity: 0.9,
-      lineCap: "round",
-      lineJoin: "round",
-    }).addTo(layer);
-
-    // 3. Vibrant primary navigation line (Google Maps Blue for drive, Cyan-Blue for walk)
-    const primaryColor = route.profile === "car" ? "#2563eb" : "#0284c7";
-    const line: Polyline = L.polyline(route.geometry, {
-      color: primaryColor,
-      weight: 6,
-      opacity: 0.98,
-      lineCap: "round",
-      lineJoin: "round",
-    }).addTo(layer);
-
-    // 4. Destination target ring
-    const dest = route.geometry[route.geometry.length - 1];
-    L.circleMarker(dest, {
-      radius: 9,
-      color: "#f5c76a",
-      weight: 3,
-      fillColor: "#2563eb",
-      fillOpacity: 1,
-    }).addTo(layer);
-
-    if (fitRoute) {
-      map.fitBounds(line.getBounds(), {
-        paddingTopLeft: [36, 130],
-        paddingBottomRight: [36, 220],
-        maxZoom: 17,
-      });
-    }
-  }, [route, fitRoute, user]);
-
-  // ----------------------------------------------------------- live position
-  useEffect(() => {
-    const map = mapRef.current;
-    const layer = userLayerRef.current;
-    if (!map || !layer) return;
-    layer.clearLayers();
-    if (!user) return;
-
-    L.marker([user.lat, user.lng], {
-      icon: userIcon(lang),
-      interactive: false,
-      zIndexOffset: 1200,
-    }).addTo(layer);
-
-    if (user.accuracy && user.accuracy > 15) {
-      const circle: Circle = L.circle([user.lat, user.lng], {
-        radius: Math.min(user.accuracy, 280),
-        color: "#3b82f6",
-        weight: 1.2,
-        opacity: 0.45,
-        fillColor: "#3b82f6",
-        fillOpacity: 0.12,
-        interactive: false,
-      });
-      circle.addTo(layer);
-    }
-
+    // 4. Smooth camera follow
     if (follow) {
-      map.setView([user.lat, user.lng], Math.max(map.getZoom(), 16), { animate: true });
+      map.panTo([user.lat, user.lng], {
+        animate: true,
+        duration: 0.6,
+        easeLinearity: 0.25,
+      });
     }
-  }, [user, follow, lang]);
+  }, [user, follow, lang, route]);
 
   return <div ref={containerRef} className={className} aria-label="Naihati Kali Puja pandal map" />;
 }
