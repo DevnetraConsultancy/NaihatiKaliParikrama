@@ -462,7 +462,7 @@ export default function MapExperience() {
   }, [route, activeMinutes, lang]);
 
   return (
-    <div className="fixed inset-x-0 top-14 bottom-[var(--nkp-bottom-ui)] z-10 overflow-hidden bg-ink">
+    <div className="fixed inset-x-0 top-[calc(67px+env(safe-area-inset-top,0px))] bottom-[var(--nkp-bottom-ui)] z-10 overflow-hidden bg-ink">
       {/* ===================================================================
           INTERACTIVE NAIHATI MAP CANVAS
          =================================================================== */}
@@ -524,7 +524,7 @@ export default function MapExperience() {
           TOP BAR: EITHER GOOGLE MAPS LIVE NAVIGATION BANNER OR SEARCH/FILTERS
          =================================================================== */}
       {isNavigating && route ? (
-        <div className="pointer-events-none absolute inset-x-0 top-3.5 sm:top-4.5 z-[600] px-2.5 sm:px-4">
+        <div className="pointer-events-none absolute inset-x-0 top-4 sm:top-5 z-[600] px-2.5 sm:px-4">
           <div className="pointer-events-auto mx-auto max-w-xl overflow-hidden rounded-3xl border border-emerald-400/35 bg-[#091e1a]/95 shadow-2xl backdrop-blur-xl">
             <div className="flex items-center gap-3 px-3.5 py-3">
               <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-500 text-ink shadow-md">
@@ -617,7 +617,7 @@ export default function MapExperience() {
           </div>
         </div>
       ) : (
-        <div className="pointer-events-none absolute inset-x-0 top-3.5 sm:top-4.5 z-[600] flex flex-col gap-2 px-2.5 sm:px-4">
+        <div className="pointer-events-none absolute inset-x-0 top-4 sm:top-5 z-[600] flex flex-col gap-2 px-2.5 sm:px-4">
           {/* Search & Day/Night Toggle */}
           <div className="pointer-events-auto mx-auto flex w-full max-w-2xl items-center gap-2">
             <div className="flex h-11 sm:h-12 flex-1 items-center gap-2.5 rounded-2xl border border-white/15 bg-[#0e071c]/80 px-3.5 shadow-[0_8px_24px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all focus-within:border-gold/50 focus-within:ring-2 focus-within:ring-gold/20">
