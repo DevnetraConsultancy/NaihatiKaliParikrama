@@ -35,23 +35,53 @@ export interface Pandal3D {
 
 const ALL_PANDALS = (pandalsSeed.pandals ?? []) as Pandal3D[];
 
-// Bounding box of Naihati pandals
-const MIN_LAT = 22.869;
-const MAX_LAT = 22.893;
-const MIN_LNG = 88.404; // River Hooghly on the west
-const MAX_LNG = 88.435; // Kalyani Expressway on the east
+// Exact Bounding Box from User's maps3d.io JSON configuration
+export const NAIHATI_BBOX = {
+  minLng: 88.40478,
+  maxLng: 88.43769,
+  minLat: 22.87005,
+  maxLat: 22.90839,
+};
 
+// Exact 17-point custom boundary polygon of Naihati from the user's maps3d.io JSON
+export const NAIHATI_POLYGON: [number, number][] = [
+  [88.40478, 22.90702],
+  [88.40926, 22.90839],
+  [88.41207, 22.90839],
+  [88.41482, 22.90784],
+  [88.41961, 22.90621],
+  [88.42728, 22.90401],
+  [88.43769, 22.90077],
+  [88.43248, 22.87005],
+  [88.40979, 22.88127],
+  [88.41091, 22.88494],
+  [88.41139, 22.88823],
+  [88.41113, 22.89198],
+  [88.41018, 22.89502],
+  [88.40801, 22.90011],
+  [88.40639, 22.90348],
+  [88.40551, 22.9052],
+  [88.40478, 22.90702],
+];
+
+const MAP_WIDTH = 22;
+const MAP_DEPTH = 22;
+const BLOCK_THICKNESS = 2.8;
+
+/**
+ * Projects real-world Latitude & Longitude to 3D Space (X, Z) on top of the slab
+ */
 function geoTo3D(lat: number, lng: number): [number, number] {
-  const normX = (lng - MIN_LNG) / (MAX_LNG - MIN_LNG); // 0 (west) to 1 (east)
-  const normZ = (MAX_LAT - lat) / (MAX_LAT - MIN_LAT); // 0 (north) to 1 (south)
-  const x = (normX - 0.5) * 17; // -8.5 to +8.5
-  const z = (normZ - 0.5) * 17; // -8.5 to +8.5
+  const normX = (lng - NAIHATI_BBOX.minLng) / (NAIHATI_BBOX.maxLng - NAIHATI_BBOX.minLng);
+  const normZ = (lat - NAIHATI_BBOX.minLat) / (NAIHATI_BBOX.maxLat - NAIHATI_BBOX.minLat);
+  const x = (normX - 0.5) * MAP_WIDTH;
+  const z = (normZ - 0.5) * MAP_DEPTH;
   return [x, z];
 }
 
 /**
- * Creates a procedural geological rock strata texture for the cutaway sides
- * of the 3D terrain block, matching the realistic sediment layers on 3d-mapper.com
+ * Generates the layered terracotta bedrock strata for the cutaway sides of the slab,
+ * matching maps3d.io "terracotta_verydark" material
  */
 function createStrataTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
@@ -61,38 +91,370 @@ function createStrataTexture(): THREE.CanvasTexture {
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
   const bands = [
-    { y: 0, h: 25, color: "#453229" },   // Topsoil
-    { y: 25, h: 35, color: "#8a482b" },  // Terracotta clay
-    { y: 60, h: 45, color: "#b5693d" },  // Warm sandstone
-    { y: 105, h: 20, color: "#d99b66" }, // Silt & quartz
-    { y: 125, h: 50, color: "#7a371c" }, // Deep ferruginous red
-    { y: 175, h: 30, color: "#9e5330" }, // Weathered sediment
-    { y: 205, h: 51, color: "#362218" }, // Basal dark bedrock
+    { y: 0, h: 22, color: "#453229" },   // Topsoil
+    { y: 22, h: 36, color: "#7a371c" },  // Deep ferruginous terracotta
+    { y: 58, h: 42, color: "#8a482b" },  // Terracotta clay
+    { y: 100, h: 28, color: "#b5693d" }, // Sandstone
+    { y: 128, h: 22, color: "#d99b66" }, // Silt & quartz
+    { y: 150, h: 46, color: "#682c16" }, // Dark terracotta bedrock
+    { y: 196, h: 60, color: "#361b11" }, // Basal basement rock
   ];
 
   for (const b of bands) {
     ctx.fillStyle = b.color;
     ctx.fillRect(0, b.y, 512, b.h);
 
-    // Subtle horizontal bedding lines
-    ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+    // Horizontal sedimentary bedding lines
+    ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
     ctx.fillRect(0, b.y + b.h - 2, 512, 2);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
     ctx.fillRect(0, b.y + 1, 512, 1);
   }
 
-  // Add subtle organic grain
-  for (let i = 0; i < 600; i++) {
+  // Natural organic grain
+  for (let i = 0; i < 700; i++) {
     const x = Math.random() * 512;
     const y = Math.random() * 256;
-    ctx.fillStyle = Math.random() > 0.5 ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)";
-    ctx.fillRect(x, y, Math.random() * 8 + 2, 1.5);
+    ctx.fillStyle = Math.random() > 0.5 ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.06)";
+    ctx.fillRect(x, y, Math.random() * 9 + 2, 1.5);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   return texture;
+}
+
+/**
+ * Creates the high-resolution dynamic top surface texture representing Naihati:
+ * - Green ground base (#4d8c4a)
+ * - Curving Hooghly River on the west (#3B9FD9)
+ * - Ponds & Dighis across Naihati
+ * - Eastern Railway corridor passing through Naihati Junction Station
+ * - Kalyani Expressway on the east (#a6071f)
+ * - Arterial street networks (#a6071f) and urban settlement clusters (#726e68)
+ */
+function createNaihatiTopMapTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024;
+  canvas.height = 1024;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return new THREE.CanvasTexture(canvas);
+
+  // 1. Lush Green Land Cover (Base: #4d8c4a as in JSON)
+  ctx.fillStyle = "#3e6c38";
+  ctx.fillRect(0, 0, 1024, 1024);
+
+  // Organic soil & vegetation variation
+  ctx.fillStyle = "#4a7d43";
+  for (let i = 0; i < 50; i++) {
+    const gx = Math.random() * 1024;
+    const gy = Math.random() * 1024;
+    ctx.fillRect(gx, gy, Math.random() * 80 + 30, Math.random() * 60 + 20);
+  }
+
+  // 2. Hooghly River on the West (u: 0 to ~0.24, flowing curved along the western boundary)
+  ctx.fillStyle = "#1e3a8a"; // deep blue base
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(240, 0);
+  ctx.bezierCurveTo(220, 260, 290, 520, 200, 750);
+  ctx.bezierCurveTo(170, 850, 150, 940, 130, 1024);
+  ctx.lineTo(0, 1024);
+  ctx.closePath();
+  ctx.fill();
+
+  // Vibrant water gradient (#3B9FD9 from user JSON)
+  const riverGrad = ctx.createLinearGradient(0, 0, 260, 0);
+  riverGrad.addColorStop(0, "#1d4ed8");
+  riverGrad.addColorStop(0.65, "#3b82f6");
+  riverGrad.addColorStop(1, "#38bdf8");
+  ctx.fillStyle = riverGrad;
+  ctx.fill();
+
+  // Sandy riverside border / Ghats
+  ctx.strokeStyle = "#854d0e";
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  // 3. Ponds & Water Bodies (Local Dighis in Naihati: #3B9FD9)
+  const ponds = [
+    { x: 340, y: 320, rx: 30, ry: 20 },
+    { x: 420, y: 220, rx: 25, ry: 18 },
+    { x: 520, y: 440, rx: 34, ry: 24 },
+    { x: 380, y: 580, rx: 26, ry: 18 },
+    { x: 620, y: 310, rx: 28, ry: 20 },
+    { x: 480, y: 720, rx: 32, ry: 22 },
+    { x: 680, y: 640, rx: 38, ry: 26 },
+    { x: 740, y: 420, rx: 30, ry: 20 },
+    { x: 310, y: 790, rx: 24, ry: 16 },
+    { x: 580, y: 840, rx: 35, ry: 24 },
+  ];
+  ctx.fillStyle = "#38bdf8";
+  ctx.strokeStyle = "#0284c7";
+  ctx.lineWidth = 2.5;
+  for (const p of ponds) {
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, p.rx, p.ry, Math.PI / 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // 4. Urban Settlements & Building Footprints (#726e68 from JSON)
+  ctx.fillStyle = "rgba(114, 110, 104, 0.75)";
+  ctx.strokeStyle = "rgba(40, 36, 32, 0.4)";
+  ctx.lineWidth = 1;
+  for (let gx = 250; gx < 850; gx += 22) {
+    for (let gy = 120; gy < 920; gy += 18) {
+      if (Math.random() > 0.42) {
+        ctx.fillRect(gx + (Math.random() * 6 - 3), gy + (Math.random() * 6 - 3), 14, 10);
+        ctx.strokeRect(gx, gy, 14, 10);
+      }
+    }
+  }
+
+  // 5. Eastern Railway Tracks passing through Naihati Junction Station
+  const railX = 490;
+  // Railway embankment
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(railX - 8, 0, 16, 1024);
+
+  // Cross-ties (sleepers)
+  ctx.strokeStyle = "#475569";
+  ctx.lineWidth = 2;
+  for (let y = 0; y < 1024; y += 8) {
+    ctx.beginPath();
+    ctx.moveTo(railX - 7, y);
+    ctx.lineTo(railX + 7, y);
+    ctx.stroke();
+  }
+
+  // Double steel tracks (shining silver)
+  ctx.strokeStyle = "#f8fafc";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(railX - 3.5, 0);
+  ctx.lineTo(railX - 3.5, 1024);
+  ctx.moveTo(railX + 3.5, 0);
+  ctx.lineTo(railX + 3.5, 1024);
+  ctx.stroke();
+
+  // Naihati Junction Station platform hub
+  ctx.fillStyle = "#f59e0b";
+  ctx.fillRect(railX - 18, 480, 36, 65);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(railX - 18, 480, 36, 65);
+
+  // 6. Kalyani Expressway (Wide arterial highway on the East: #a6071f)
+  const hwyX = 890;
+  ctx.strokeStyle = "#a6071f";
+  ctx.lineWidth = 18;
+  ctx.beginPath();
+  ctx.moveTo(hwyX - 40, 0);
+  ctx.bezierCurveTo(hwyX - 10, 300, hwyX + 15, 600, hwyX, 1024);
+  ctx.stroke();
+
+  // Highway yellow center divider
+  ctx.strokeStyle = "#fbbf24";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 8]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 7. Arterial Red Roads (#a6071f connecting Ferry Ghat, Boro Maa, Station, Expressway)
+  ctx.strokeStyle = "#a6071f";
+  ctx.lineWidth = 8;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // Arbinda Road (Ferry Ghat -> Station -> Boro Maa Temple)
+  ctx.beginPath();
+  ctx.moveTo(210, 490);
+  ctx.lineTo(railX, 510);
+  ctx.lineTo(hwyX, 560);
+  ctx.stroke();
+
+  // Ghoshpara Road
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.moveTo(330, 0);
+  ctx.bezierCurveTo(340, 300, 360, 600, 320, 1024);
+  ctx.stroke();
+
+  // Secondary local connector streets
+  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = "#821626";
+  for (let r = 160; r < 960; r += 70) {
+    ctx.beginPath();
+    ctx.moveTo(250 + Math.random() * 40, r);
+    ctx.lineTo(railX - 10, r + (Math.random() * 30 - 15));
+    ctx.moveTo(railX + 10, r);
+    ctx.lineTo(hwyX - 20, r + (Math.random() * 30 - 15));
+    ctx.stroke();
+  }
+
+  // 8. Soft satellite underlay blend for realistic aerial realism
+  const img = new (window as any).Image();
+  img.src = "/naihati-3d-model.webp";
+  img.onload = () => {
+    ctx.globalAlpha = 0.28;
+    ctx.drawImage(img, 0, 0, 1024, 1024);
+    ctx.globalAlpha = 1.0;
+    texture.needsUpdate = true;
+  };
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  return texture;
+}
+
+/**
+ * Builds the 3D Pin featuring the circular Maa Kali portrait medallion:
+ * - Maa Kali portrait disc facing camera
+ * - Golden filigree frame
+ * - Radiant Golden Mukut (Crown) & glowing sunburst aura for Naihati Boro Maa
+ */
+function createPandalPin(
+  pandal: Pandal3D,
+  kaliTexture: THREE.Texture,
+  boroMaaTexture: THREE.Texture
+): THREE.Group {
+  const isDivine = pandal.slug === "naihati-boromaa-kali-puja" || pandal.featured;
+  const pinGroup = new THREE.Group();
+  pinGroup.userData = { pandal };
+
+  const [x, z] = geoTo3D(pandal.lat, pandal.lng);
+  pinGroup.position.set(x, 0.05, z);
+
+  // 1. Golden Base Lotus Ring on terrain
+  const baseRadius = isDivine ? 0.65 : 0.38;
+  const baseGeo = new THREE.RingGeometry(0.08, baseRadius, 16);
+  const baseMat = new THREE.MeshBasicMaterial({
+    color: isDivine ? 0xf5c76a : 0xffe6a8,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.85,
+  });
+  const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+  baseMesh.rotation.x = -Math.PI / 2;
+  pinGroup.add(baseMesh);
+
+  // 2. Slender Golden Spire Stem
+  const stemHeight = isDivine ? 1.7 : 1.2;
+  const stemGeo = new THREE.CylinderGeometry(0.04, 0.05, stemHeight, 8);
+  const stemMat = new THREE.MeshStandardMaterial({
+    color: 0xf5c76a,
+    metalness: 0.85,
+    roughness: 0.25,
+  });
+  const stem = new THREE.Mesh(stemGeo, stemMat);
+  stem.position.y = stemHeight / 2;
+  stem.castShadow = true;
+  pinGroup.add(stem);
+
+  // 3. Billboarded Medallion Head (always faces the user's camera)
+  const billboard = new THREE.Group();
+  billboard.position.y = stemHeight + (isDivine ? 0.55 : 0.38);
+  pinGroup.add(billboard);
+  pinGroup.userData.billboard = billboard;
+
+  const headRadius = isDivine ? 0.65 : 0.44;
+
+  // Front face: circular portrait of Maa Kali
+  const frontGeo = new THREE.CircleGeometry(headRadius, 32);
+  const frontMat = new THREE.MeshBasicMaterial({
+    map: isDivine ? boroMaaTexture : kaliTexture,
+    side: THREE.FrontSide,
+  });
+  const frontMesh = new THREE.Mesh(frontGeo, frontMat);
+  billboard.add(frontMesh);
+
+  // Outer golden bezel ring
+  const ringGeo = new THREE.RingGeometry(headRadius * 0.96, headRadius * 1.15, 32);
+  const ringMat = new THREE.MeshStandardMaterial({
+    color: isDivine ? 0xffe6a8 : 0xf5c76a,
+    emissive: isDivine ? 0xd97706 : 0x78350f,
+    emissiveIntensity: 0.45,
+    metalness: 0.9,
+    roughness: 0.2,
+  });
+  const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+  ringMesh.position.z = 0.005;
+  billboard.add(ringMesh);
+
+  // Solid gold backing
+  const backGeo = new THREE.CircleGeometry(headRadius * 1.15, 32);
+  const backMat = new THREE.MeshStandardMaterial({
+    color: 0xb8860b,
+    metalness: 0.8,
+    roughness: 0.3,
+    side: THREE.BackSide,
+  });
+  const backMesh = new THREE.Mesh(backGeo, backMat);
+  billboard.add(backMesh);
+
+  if (isDivine) {
+    // 4. DIVINE BORO MAA SPECIAL FEATURES:
+    // Ornate Golden Mukut (Crown)
+    const crownGroup = new THREE.Group();
+    crownGroup.position.y = headRadius * 1.05;
+
+    // Center tall crown pinnacle
+    const centerPinnacle = new THREE.Mesh(
+      new THREE.ConeGeometry(0.18, 0.7, 8),
+      new THREE.MeshStandardMaterial({
+        color: 0xffd700,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 0.65,
+        metalness: 0.9,
+      })
+    );
+    centerPinnacle.position.y = 0.35;
+    crownGroup.add(centerPinnacle);
+
+    // Left crown pinnacle
+    const leftPinnacle = new THREE.Mesh(
+      new THREE.ConeGeometry(0.12, 0.45, 8),
+      new THREE.MeshStandardMaterial({ color: 0xffe6a8, metalness: 0.8 })
+    );
+    leftPinnacle.position.set(-0.25, 0.22, 0);
+    crownGroup.add(leftPinnacle);
+
+    // Right crown pinnacle
+    const rightPinnacle = new THREE.Mesh(
+      new THREE.ConeGeometry(0.12, 0.45, 8),
+      new THREE.MeshStandardMaterial({ color: 0xffe6a8, metalness: 0.8 })
+    );
+    rightPinnacle.position.set(0.25, 0.22, 0);
+    crownGroup.add(rightPinnacle);
+
+    // Ruby gem crest
+    const ruby = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0xdc2626 })
+    );
+    ruby.position.set(0, 0.2, 0.08);
+    crownGroup.add(ruby);
+
+    billboard.add(crownGroup);
+
+    // Radiating Golden Sunburst Halo Ring
+    const halo = new THREE.Mesh(
+      new THREE.TorusGeometry(headRadius * 1.45, 0.05, 8, 32),
+      new THREE.MeshBasicMaterial({ color: 0xffe6a8 })
+    );
+    halo.name = "divineHalo";
+    billboard.add(halo);
+
+    // Heavenly warm point light
+    const spot = new THREE.PointLight(0xf5c76a, 3.2, 7);
+    spot.position.set(0, 0.5, 0.4);
+    billboard.add(spot);
+  }
+
+  return pinGroup;
 }
 
 export default function Naihati3DMapHero() {
@@ -144,8 +506,8 @@ export default function Naihati3DMapHero() {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.maxPolarAngle = Math.PI / 2 - 0.05; // Do not go beneath the terrain
-    controls.minDistance = 10;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05; // Do not go beneath terrain
+    controls.minDistance = 8;
     controls.maxDistance = 46;
     controls.autoRotate = false;
     controls.autoRotateSpeed = 0.6;
@@ -161,13 +523,6 @@ export default function Naihati3DMapHero() {
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 1024;
     sunLight.shadow.mapSize.height = 1024;
-    sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 100;
-    sunLight.shadow.camera.left = -16;
-    sunLight.shadow.camera.right = 16;
-    sunLight.shadow.camera.top = 16;
-    sunLight.shadow.camera.bottom = -16;
-    sunLight.shadow.bias = -0.0005;
     scene.add(sunLight);
 
     // Warm golden fill light from the west (river reflections)
@@ -175,46 +530,71 @@ export default function Naihati3DMapHero() {
     riverLight.position.set(-20, 15, -10);
     scene.add(riverLight);
 
-    // 6. Build the 3D Cutaway Terrain Block (20x20 surface, 3.2 depth)
+    // 6. BUILD THE EXACT NAIHATI POLYGON 3D CUTAWAY SLAB
+    const shape = new THREE.Shape();
+    for (let i = 0; i < NAIHATI_POLYGON.length; i++) {
+      const [lng, lat] = NAIHATI_POLYGON[i];
+      const [x, z] = geoTo3D(lat, lng);
+      if (i === 0) shape.moveTo(x, z);
+      else shape.lineTo(x, z);
+    }
+
+    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
+      depth: BLOCK_THICKNESS,
+      bevelEnabled: true,
+      bevelSegments: 3,
+      steps: 1,
+      bevelSize: 0.12,
+      bevelThickness: 0.15,
+    };
+
+    const terrainGeom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    // Rotate so top face is horizontal on X-Z plane, extruding downwards into -Y
+    terrainGeom.rotateX(Math.PI / 2);
+
+    // Normalize top face UVs across the bounding box so the map texture aligns precisely
+    const pos = terrainGeom.attributes.position;
+    const uvs = terrainGeom.attributes.uv;
+    const halfW = MAP_WIDTH / 2;
+    const halfD = MAP_DEPTH / 2;
+    const topGroup = terrainGeom.groups[0];
+    if (topGroup) {
+      for (let i = topGroup.start; i < topGroup.start + topGroup.count; i++) {
+        const x = pos.getX(i);
+        const z = pos.getZ(i);
+        const u = (x + halfW) / MAP_WIDTH;
+        const v = (z + halfD) / MAP_DEPTH;
+        uvs.setXY(i, u, v);
+      }
+      uvs.needsUpdate = true;
+    }
+
+    // Textures
     const strataTexture = createStrataTexture();
-    const textureLoader = new THREE.TextureLoader();
-    const topTexture = textureLoader.load("/naihati-3d-model.webp");
-    topTexture.generateMipmaps = true;
-    topTexture.minFilter = THREE.LinearMipmapLinearFilter;
+    const topTexture = createNaihatiTopMapTexture();
 
-    const blockWidth = 20;
-    const blockDepth = 20;
-    const blockHeight = 3.2;
-
-    const sideMat = new THREE.MeshStandardMaterial({
-      map: strataTexture,
-      roughness: 0.9,
-      metalness: 0.05,
-    });
     const topMat = new THREE.MeshStandardMaterial({
       map: topTexture,
       roughness: 0.75,
       metalness: 0.1,
     });
-    const bottomMat = new THREE.MeshStandardMaterial({
-      color: 0x1a120c,
-      roughness: 0.95,
+    const sideMat = new THREE.MeshStandardMaterial({
+      map: strataTexture,
+      roughness: 0.9,
+      metalness: 0.05,
     });
 
-    // Box materials order: [right(+X), left(-X), top(+Y), bottom(-Y), front(+Z), back(-Z)]
-    const materials = [sideMat, sideMat, topMat, bottomMat, sideMat, sideMat];
-    const blockGeo = new THREE.BoxGeometry(blockWidth, blockHeight, blockDepth);
-    const terrainBlock = new THREE.Mesh(blockGeo, materials);
-    terrainBlock.position.y = -blockHeight / 2;
-    terrainBlock.receiveShadow = true;
-    scene.add(terrainBlock);
+    const terrainMesh = new THREE.Mesh(terrainGeom, [topMat, sideMat]);
+    terrainMesh.position.y = 0;
+    terrainMesh.receiveShadow = true;
+    scene.add(terrainMesh);
 
-    // 7. Base ground shadow ring
-    const groundGeo = new THREE.PlaneGeometry(36, 36);
-    const groundMat = new THREE.ShadowMaterial({ opacity: 0.45 });
+    // 7. Base Drop Shadow Ring underneath the custom polygon
+    const groundGeo = new THREE.PlaneGeometry(38, 38);
+    const groundMat = new THREE.ShadowMaterial({ opacity: 0.4 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -blockHeight - 0.05;
+    ground.position.y = -BLOCK_THICKNESS - 0.05;
     ground.receiveShadow = true;
     scene.add(ground);
 
@@ -247,7 +627,7 @@ export default function Naihati3DMapHero() {
     cloudsGroup.add(cloud3);
     scene.add(cloudsGroup);
 
-    // 9. Floating Festive Hot Air Balloon / Sky Lantern
+    // 9. Floating Festive Sky Lantern
     const balloonGroup = new THREE.Group();
     const balloonGeo = new THREE.SphereGeometry(0.55, 12, 12);
     const balloonMat = new THREE.MeshStandardMaterial({
@@ -263,120 +643,27 @@ export default function Naihati3DMapHero() {
     balloonGroup.position.set(0, 4.2, -6);
     scene.add(balloonGroup);
 
-    // 10. Generate 3D Pandal Pins across the 28 locations
+    // 10. Load Textures for Kali Mata & Boro Maa Pins
+    const textureLoader = new THREE.TextureLoader();
+    const kaliTexture = textureLoader.load("/kali-pin.jpg");
+    const boroMaaTexture = textureLoader.load("/boro-maa-emblem.png");
+
+    // 11. Generate 3D Pandal Pins across all 28 locations with Maa Kali Medallions
     const pinMeshes = new Map<string, THREE.Group>();
 
     for (const pandal of ALL_PANDALS) {
-      const [x, z] = geoTo3D(pandal.lat, pandal.lng);
-      const isDivine = pandal.slug === "naihati-boromaa-kali-puja" || pandal.featured;
-
-      const pinGroup = new THREE.Group();
-      pinGroup.position.set(x, 0.05, z);
-      pinGroup.userData = { pandal };
-
-      if (isDivine) {
-        // --- DIVINE BORO MAA PIN ---
-        // 1. Golden Base ring
-        const baseGeo = new THREE.RingGeometry(0.2, 0.65, 16);
-        const baseMat = new THREE.MeshBasicMaterial({
-          color: 0xf5c76a,
-          side: THREE.DoubleSide,
-        });
-        const baseMesh = new THREE.Mesh(baseGeo, baseMat);
-        baseMesh.rotation.x = -Math.PI / 2;
-        pinGroup.add(baseMesh);
-
-        // 2. Tall Golden Temple Stem
-        const stemGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.6, 8);
-        const stemMat = new THREE.MeshStandardMaterial({
-          color: 0xf5c76a,
-          metalness: 0.8,
-          roughness: 0.2,
-        });
-        const stem = new THREE.Mesh(stemGeo, stemMat);
-        stem.position.y = 0.8;
-        stem.castShadow = true;
-        pinGroup.add(stem);
-
-        // 3. Ornate Crown Crest / Golden Medallion
-        const crownGeo = new THREE.SphereGeometry(0.55, 16, 16);
-        const crownMat = new THREE.MeshStandardMaterial({
-          color: 0xffd700,
-          emissive: 0xf59e0b,
-          emissiveIntensity: 0.8,
-          metalness: 0.9,
-          roughness: 0.15,
-        });
-        const crown = new THREE.Mesh(crownGeo, crownMat);
-        crown.position.y = 1.95;
-        crown.castShadow = true;
-        pinGroup.add(crown);
-
-        // 4. Trishul / Divine Spike Top
-        const spikeGeo = new THREE.ConeGeometry(0.18, 0.7, 8);
-        const spikeMat = new THREE.MeshStandardMaterial({
-          color: 0xffe6a8,
-          emissive: 0xf5c76a,
-          emissiveIntensity: 0.9,
-        });
-        const spike = new THREE.Mesh(spikeGeo, spikeMat);
-        spike.position.y = 2.65;
-        pinGroup.add(spike);
-
-        // 5. Divine Sunburst Halo Ring
-        const haloGeo = new THREE.TorusGeometry(0.85, 0.06, 8, 24);
-        const haloMat = new THREE.MeshBasicMaterial({ color: 0xffe6a8 });
-        const halo = new THREE.Mesh(haloGeo, haloMat);
-        halo.position.y = 1.95;
-        halo.name = "divineHalo";
-        pinGroup.add(halo);
-
-        // 6. Warm PointLight
-        const pLight = new THREE.PointLight(0xf5c76a, 2.5, 6);
-        pLight.position.set(0, 2.2, 0);
-        pinGroup.add(pLight);
-      } else {
-        // --- STANDARD PANDAL PIN ---
-        const pinColor =
-          pandal.category === "heritage"
-            ? 0xf5c76a
-            : pandal.category === "large"
-            ? 0xff5f7e
-            : 0x3dd6c0;
-
-        // Stem
-        const stemGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.9, 6);
-        const stemMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.5 });
-        const stem = new THREE.Mesh(stemGeo, stemMat);
-        stem.position.y = 0.45;
-        stem.castShadow = true;
-        pinGroup.add(stem);
-
-        // Pin Head Sphere
-        const headGeo = new THREE.SphereGeometry(0.28, 12, 12);
-        const headMat = new THREE.MeshStandardMaterial({
-          color: pinColor,
-          emissive: pinColor,
-          emissiveIntensity: 0.5,
-          roughness: 0.3,
-        });
-        const head = new THREE.Mesh(headGeo, headMat);
-        head.position.y = 1.05;
-        head.castShadow = true;
-        pinGroup.add(head);
-      }
-
+      const pinGroup = createPandalPin(pandal, kaliTexture, boroMaaTexture);
       scene.add(pinGroup);
       pinMeshes.set(pandal.slug, pinGroup);
     }
     pinMeshesRef.current = pinMeshes;
 
-    // 11. Raycaster for touching/clicking 3D pins
+    // 12. Interactive Pointer Tap / Click Raycasting
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
     const handleClickOrTouch = (clientX: number, clientY: number) => {
-      const rect = renderer.domElement.getBoundingClientRect();
+      const rect = container.getBoundingClientRect();
       mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -405,9 +692,9 @@ export default function Naihati3DMapHero() {
     };
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
 
-    // 12. Animation loop
+    // 13. Animation loop: Billboards face camera + Halo rotation + Clouds
     let animId = 0;
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
@@ -420,6 +707,13 @@ export default function Naihati3DMapHero() {
 
       // Floating lantern bob
       balloonGroup.position.y = 4.2 + Math.sin(elapsed * 1.5) * 0.3;
+
+      // Rotate all Maa Kali medallions so they directly face the user's camera
+      for (const group of pinMeshes.values()) {
+        if (group.userData?.billboard) {
+          group.userData.billboard.quaternion.copy(camera.quaternion);
+        }
+      }
 
       // Rotate divine halo around Boro Maa
       const boroMaaGroup = pinMeshes.get("naihati-boromaa-kali-puja");
@@ -435,7 +729,7 @@ export default function Naihati3DMapHero() {
     };
     animate();
 
-    // 13. Responsive Resize
+    // 14. Responsive Resize
     const onResize = () => {
       if (!container || !renderer || !camera) return;
       const w = container.clientWidth;
@@ -516,7 +810,7 @@ export default function Naihati3DMapHero() {
             <span className="relative inline-flex size-2.5 rounded-full bg-gold" />
           </span>
           <span className="text-[12.5px] font-bold tracking-wide text-gold">
-            {lang === "bn" ? "নৈহাটি ৩ডি ইন্টারেক্টিভ ম্যাপ" : "Naihati 3D Interactive Map"}
+            {lang === "bn" ? "নৈহাটি ৩ডি ইন্টারেক্টিভ মডেল" : "Naihati 3D Interactive Model"}
           </span>
         </div>
 
