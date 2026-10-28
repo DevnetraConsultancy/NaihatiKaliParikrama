@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useMemo } from "react";
 import { useI18n } from "@/components/LanguageProvider";
 import { CategoryTag, CrowdPill } from "@/components/map/bits";
-import { RotatingFloralAlpona } from "@/components/AppHeader";
+import Naihati3DMapHero from "@/components/Naihati3DMapHero";
 import {
   CrosshairIcon,
   MapIcon,
@@ -55,61 +55,8 @@ export default function HomeContent() {
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-4 pb-28">
-      {/* -------------------- Hero & Boro Maa Emblem -------------------- */}
-      <section className="relative overflow-hidden rounded-3xl border border-gold/25 bg-gradient-to-b from-white/[0.07] via-white/[0.03] to-transparent p-5 text-center shadow-xl shadow-black/40">
-        <div
-          className="pointer-events-none absolute -top-12 left-1/2 -translate-x-1/2 size-48 rounded-full opacity-35 blur-3xl"
-          style={{ background: "radial-gradient(circle, #f5c76a 0%, transparent 70%)" }}
-        />
-
-        <div className="relative mx-auto flex items-center justify-center">
-          <RotatingFloralAlpona size={124} className="absolute inset-0 m-auto" />
-          <div className="relative size-24 shrink-0 overflow-hidden rounded-full border-2 border-gold/80 shadow-[0_0_24px_rgba(245,199,106,0.5)] z-10 bg-ink">
-            <Image
-              src="/boro-maa-emblem.png"
-              alt="Naihati Boro Maa"
-              width={96}
-              height={96}
-              className="size-full object-cover"
-              priority
-            />
-          </div>
-        </div>
-
-        <h1 className="bengali-gradient-text bn-text mt-3.5 text-[22px] font-bold tracking-tight">
-          {lang === "bn" ? "নৈহাটি কালীপূজা পরিক্রমা" : "Naihati Kali Puja Parikrama"}
-        </h1>
-        <p className="text-[12.5px] text-white/60">
-          {lang === "bn"
-            ? "লাইভ ম্যাপ · কাছের প্যান্ডেল · হাঁটার পথ ও সময়"
-            : "Live Map · Nearest Pandals · Walking Routes & ETAs"}
-        </p>
-
-        {/* Action Shortcuts */}
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <Link
-            href="/map"
-            className="liquid-press flex flex-col items-center justify-center gap-1.5 rounded-2xl bg-gold py-2.5 px-2 text-ink shadow-md transition-transform hover:scale-[1.02]"
-          >
-            <MapIcon size={18} className="stroke-ink" />
-            <span className="text-[12px] font-bold">{lang === "bn" ? "লাইভ ম্যাপ" : "Live Map"}</span>
-          </Link>
-          <Link
-            href="/pandals"
-            className="liquid-press flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-white/15 bg-white/5 py-2.5 px-2 text-white/90 hover:bg-white/10"
-          >
-            <TempleIcon size={18} className="stroke-white/80" />
-            <span className="text-[12px] font-medium">{lang === "bn" ? "প্যান্ডেল" : "Pandals"}</span>
-          </Link>
-          <Link
-            href="/help"
-            className="liquid-press flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-white/15 bg-white/5 py-2.5 px-2 text-white/90 hover:bg-white/10"
-          >
-            <ShieldAlertIcon size={18} className="stroke-white/80" />
-            <span className="text-[12px] font-medium">{lang === "bn" ? "সাহায্য" : "Help"}</span>
-          </Link>
-        </div>
-      </section>
+      {/* -------------------- Naihati 3D Terrain Map Hero -------------------- */}
+      <Naihati3DMapHero />
 
       {/* ----------------- User Location & Permission Status ----------------- */}
       <section className="mt-3.5">
