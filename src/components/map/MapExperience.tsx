@@ -104,9 +104,7 @@ const FACILITY_CHIPS: { kind: string; color: string }[] = [
   { kind: "hospital", color: "#ef4444" },
   { kind: "police", color: "#0284c7" },
   { kind: "toilets", color: "#0d9488" },
-  { kind: "pharmacy", color: "#10b981" },
   { kind: "railway", color: "#6366f1" },
-  { kind: "parking", color: "#3b82f6" },
   { kind: "atm", color: "#8b5cf6" },
   { kind: "restaurant", color: "#f97316" },
 ];
@@ -115,9 +113,7 @@ const DEFAULT_FACILITY_KINDS = [
   "hospital",
   "police",
   "toilets",
-  "pharmacy",
   "railway",
-  "parking",
 ];
 
 function facilityKey(facility: Facility): string {
@@ -200,7 +196,7 @@ export default function MapExperience() {
 
   const visibleFacilities = useMemo(() => {
     return allFacilities
-      .filter((f) => facilityKinds.includes(f.kind))
+      .filter((f) => f.kind !== "pharmacy" && f.kind !== "parking" && facilityKinds.includes(f.kind))
       .map((f) => ({
         ...f,
         distance: Math.round(haversine(origin, f)),
