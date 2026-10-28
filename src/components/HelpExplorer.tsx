@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/LanguageProvider";
 import { Chip, FacilityRow } from "@/components/map/bits";
 import { fetchNearby, fetchRoute } from "@/lib/client-api";
-import { NAIHATI_CENTER, formatDistance, formatMinutes } from "@/lib/geo";
+import { NAIHATI_CENTER, formatDistance, formatMinutes, haversine } from "@/lib/geo";
 import { useGeolocation } from "@/lib/hooks";
-import type { Facility } from "@/lib/types";
+import type { Facility, LatLng } from "@/lib/types";
+import seedFacilitiesJson from "@/data/facilities.seed.json";
 import {
   AtmIcon,
   HospitalIcon,
@@ -22,6 +23,10 @@ import {
   TrainIcon,
   WalkIcon,
 } from "@/components/Icons";
+
+const SEED_FACILITIES = ((seedFacilitiesJson as any).facilities ?? []) as Facility[];
+const INITIAL_HELPLINES = SEED_FACILITIES.filter((f) => f.kind === "help");
+const INITIAL_FACILITIES = SEED_FACILITIES.filter((f) => f.kind !== "help");
 
 function FacilityChipIcon({ kind }: { kind: string }) {
   const size = 13;
@@ -73,25 +78,48 @@ export default function HelpExplorer() {
     "restaurant",
   ]);
   const [radius, setRadius] = useState(3500);
-  const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [helplines, setHelplines] = useState<Facility[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState<string>("");
+
+  // Initialize immediately with bundled seed data for instant 0ms initial load
+  const [facilities, setFacilities] = useState<Facility[]>(INITIAL_FACILITIES);
+  const [helplines, setHelplines] = useState<Facility[]>(INITIAL_HELPLINES);
+  const [loading, setLoading] = useState(false);
+  const [source, setSource] = useState<string>("seed");
   const [routes, setRoutes] = useState<Record<string, string>>({});
 
   const origin = geo.position ?? NAIHATI_CENTER;
+  const lastFetchedOriginRef = useRef<LatLng | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (forced = false) => {
+    // Only re-fetch if forced or if origin has moved more than 150 meters
+    if (
+      !forced &&
+      lastFetchedOriginRef.current &&
+      haversine(origin, lastFetchedOriginRef.current) < 150
+    ) {
+      return;
+    }
+
+    lastFetchedOriginRef.current = origin;
     setLoading(true);
-    const [nearby, help] = await Promise.all([
-      fetchNearby(origin.lat, origin.lng, kinds, radius),
-      fetchNearby(NAIHATI_CENTER.lat, NAIHATI_CENTER.lng, ["help"], 6000),
-    ]);
-    setFacilities(nearby.facilities);
-    setHelplines(help.facilities);
-    setSource(nearby.source);
-    setLoading(false);
-  }, [origin.lat, origin.lng, kinds, radius]);
+
+    try {
+      const [nearby, help] = await Promise.all([
+        fetchNearby(origin.lat, origin.lng, kinds, radius),
+        fetchNearby(NAIHATI_CENTER.lat, NAIHATI_CENTER.lng, ["help"], 6000),
+      ]);
+      if (nearby.facilities.length > 0) {
+        setFacilities(nearby.facilities);
+        setSource(nearby.source);
+      }
+      if (help.facilities.length > 0) {
+        setHelplines(help.facilities);
+      }
+    } catch (err) {
+      console.warn("Help data load fallback to seed", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [origin, kinds, radius]);
 
   useEffect(() => {
     void load();
@@ -100,12 +128,13 @@ export default function HelpExplorer() {
   const grouped = useMemo(() => {
     const map = new Map<string, Facility[]>();
     for (const facility of facilities) {
+      if (!kinds.includes(facility.kind)) continue;
       const list = map.get(String(facility.kind)) ?? [];
       list.push(facility);
       map.set(String(facility.kind), list);
     }
     return [...map.entries()];
-  }, [facilities]);
+  }, [facilities, kinds]);
 
   const toggleKind = (kind: string) =>
     setKinds((current) =>
@@ -148,116 +177,122 @@ export default function HelpExplorer() {
                 ? "আপনার অবস্থান থেকে"
                 : "from your location"
               : lang === "bn"
-                ? "নৈহাটি কেন্দ্র"
-                : "Naihati Center"}
+                ? "নৈহাটি স্টেশন কেন্দ্র"
+                : "Naihati center"}
           </span>
         </div>
-        <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+
+        <div className="mt-2.5 divide-y divide-white/5">
           {helplines.map((item) => (
-            <a
-              key={item.name}
-              href={`tel:${item.phone}`}
-              className="liquid-press flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 text-center transition-colors hover:border-gold/40 hover:bg-white/[0.08]"
+            <div
+              key={`${item.name}-${item.phone}`}
+              className="flex items-center justify-between py-2 text-[12.5px]"
             >
-              <span className="text-[11px] text-white/60">{item.name}</span>
-              <span className="mt-1 flex items-center gap-1 text-[13px] font-bold text-gold">
-                <PhoneIcon size={12} className="stroke-gold" />
-                <span>{item.phone}</span>
-              </span>
-            </a>
+              <div>
+                <p className="font-medium text-white">{item.name}</p>
+                {item.address ? <p className="text-[11px] text-white/50">{item.address}</p> : null}
+              </div>
+              {item.phone ? (
+                <a
+                  href={`tel:${item.phone}`}
+                  className="liquid-press inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[12px] font-bold text-gold hover:bg-gold hover:text-ink"
+                >
+                  <PhoneIcon size={12} className="stroke-current" />
+                  <span>{item.phone}</span>
+                </a>
+              ) : null}
+            </div>
           ))}
         </div>
       </section>
 
-      {/* Filters */}
-      <div className="mt-3.5 flex flex-wrap gap-1.5">
-        {KIND_CHIPS.map((chip) => (
-          <Chip
-            key={chip.kind}
-            active={kinds.includes(chip.kind)}
-            onClick={() => toggleKind(chip.kind)}
-          >
-            <FacilityChipIcon kind={chip.kind} />
-            <span>{t(chip.kind)}</span>
-          </Chip>
-        ))}
-      </div>
-
-      <div className="mt-2.5 flex items-center justify-between">
-        <p className="text-[11px] text-white/50">
-          {facilities.length} {lang === "bn" ? "জায়গা পাওয়া গেছে" : "places found"}
-          {source === "seed" || source === "cache"
-            ? ` · ${lang === "bn" ? "যাচাইকৃত তালিকা" : "verified local list"}`
-            : ""}
-        </p>
-        <div className="flex gap-1">
-          {RADII.map((r) => (
-            <Chip key={r} active={radius === r} onClick={() => setRadius(r)}>
-              {r < 1000 ? `${r}m` : `${r / 1000}km`}
-            </Chip>
-          ))}
+      {/* Facility filters */}
+      <section className="mt-4">
+        <div className="flex items-center justify-between">
+          <p className="text-[12.5px] font-semibold text-white">
+            {lang === "bn" ? "প্রয়োজনীয় পরিষেবা ফিল্টার" : "Filter essential stops"}
+          </p>
+          <div className="flex items-center gap-1 text-[11px]">
+            {RADII.map((val) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setRadius(val)}
+                className={`liquid-press rounded-full px-2 py-0.5 font-medium transition-colors ${
+                  radius === val
+                    ? "bg-gold text-ink font-bold"
+                    : "border border-white/10 bg-white/5 text-white/60"
+                }`}
+              >
+                {val >= 1000 ? `${val / 1000} km` : `${val} m`}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="mt-3 space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/5" />
-          ))}
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {KIND_CHIPS.map((chip) => {
+            const active = kinds.includes(chip.kind);
+            return (
+              <button
+                key={chip.kind}
+                type="button"
+                onClick={() => toggleKind(chip.kind)}
+                className={`liquid-press inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-medium transition-colors ${
+                  active
+                    ? "bg-white/15 text-white border border-white/25 shadow-sm"
+                    : "border border-white/10 bg-white/[0.04] text-white/50 hover:bg-white/8"
+                }`}
+              >
+                <FacilityChipIcon kind={chip.kind} />
+                <span>{t(chip.kind as Parameters<typeof t>[0])}</span>
+              </button>
+            );
+          })}
         </div>
-      ) : (
-        <div className="mt-3 space-y-4">
-          {grouped.map(([kind, items]) => (
-            <section key={kind}>
-              <div className="flex items-center gap-1.5 px-1 pb-1.5">
+      </section>
+
+      {/* Directory list */}
+      <section className="mt-4 space-y-4">
+        {loading && facilities.length === 0 ? (
+          <div className="space-y-2 py-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/5" />
+            ))}
+          </div>
+        ) : grouped.length === 0 ? (
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center text-[13px] text-white/55">
+            {t("noFacilitiesInRange")}
+          </div>
+        ) : (
+          grouped.map(([kind, list]) => (
+            <div key={kind}>
+              <div className="flex items-center gap-2 px-1">
                 <FacilityChipIcon kind={kind} />
-                <h2 className="text-[12.5px] font-semibold text-white/80">
-                  {t(kind)} · {items.length}
+                <h2 className="text-[13.5px] font-bold text-white">
+                  {t(kind as Parameters<typeof t>[0])} ({list.length})
                 </h2>
               </div>
-              <div className="space-y-1.5">
-                {items.map((facility) => {
-                  const routeText = routes[`${facility.kind}:${facility.name}`];
-                  const mapRouteUrl = `/map?facilityKind=${encodeURIComponent(
-                    String(facility.kind),
-                  )}&facilityLat=${facility.lat}&facilityLng=${facility.lng}&facilityName=${encodeURIComponent(
-                    facility.name,
-                  )}&route=1`;
 
+              <div className="mt-2 divide-y divide-white/5 rounded-3xl border border-white/10 bg-white/[0.03] p-2">
+                {list.map((facility) => {
+                  const key = `${facility.kind}:${facility.name}`;
+                  const routeInfo = routes[key];
                   return (
-                    <div key={`${facility.kind}-${facility.name}`} className="space-y-1">
-                      <FacilityRow
-                        facility={facility}
-                        lang={lang}
-                        onRoute={() => void showRoute(facility)}
-                      />
-                      <div className="flex items-center justify-between px-3">
-                        {routeText ? (
-                          <p className="flex items-center gap-1.5 text-[11px] text-gold">
-                            <WalkIcon size={12} className="stroke-gold" />
-                            <span>{routeText}</span>
-                          </p>
-                        ) : (
-                          <span />
-                        )}
-                        <Link
-                          href={mapRouteUrl}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-gold hover:underline"
-                        >
-                          <NavigationIcon size={11} className="stroke-gold" />
-                          <span>
-                            {lang === "bn" ? "ম্যাপে লাইভ পথ দেখুন →" : "Live Route on Map →"}
-                          </span>
-                        </Link>
-                      </div>
-                    </div>
+                    <FacilityRow
+                      key={key}
+                      facility={facility}
+                      routeInfo={routeInfo}
+                      lang={lang}
+                      onRoute={() => void showRoute(facility)}
+                    />
                   );
                 })}
               </div>
-            </section>
-          ))}
-        </div>
-      )}
+            </div>
+          ))
+        )}
+      </section>
     </div>
   );
 }

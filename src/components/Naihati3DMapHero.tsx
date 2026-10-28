@@ -17,6 +17,7 @@ import {
   TempleIcon,
 } from "@/components/Icons";
 import pandalsSeed from "@/data/pandals.seed.json";
+import buildingsData from "../../public/naihati-3d-buildings.json";
 
 export interface Pandal3D {
   slug: string;
@@ -67,7 +68,7 @@ export function geoTo3D(lat: number, lng: number): [number, number] {
 }
 
 /**
- * Elegant dark architectural side strata texture for the museum diorama slab
+ * Dark architectural side strata texture for the museum diorama slab
  */
 function createSideStrataTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
@@ -76,11 +77,9 @@ function createSideStrataTexture(): THREE.CanvasTexture {
   const ctx = canvas.getContext("2d");
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  // Dark slate base
   ctx.fillStyle = "#16131c";
   ctx.fillRect(0, 0, 512, 128);
 
-  // Subtle architectural terracotta / granite strata lines
   const lines = [
     { y: 8, h: 4, c: "#281a17" },
     { y: 24, h: 6, c: "#3a221b" },
@@ -103,25 +102,27 @@ function createSideStrataTexture(): THREE.CanvasTexture {
 }
 
 /**
- * Builds the 3D pin featuring the circular Maa Kali portrait medallion
+ * Builds the 3D pin featuring:
+ * - Boro Maa Photo + Divine Mukut Crown + Sunburst Halo ONLY for Boro Maa Temple
+ * - Fierce Kali Golden Mandala Emblem for all other 27 Kali Puja Pandals
  */
 function createPandalPin(
   pandal: Pandal3D,
   kaliTexture: THREE.Texture,
   boroMaaTexture: THREE.Texture
 ): THREE.Group {
-  const isDivine = pandal.slug === "naihati-boromaa-kali-puja" || pandal.featured;
+  const isBoroMaa = pandal.slug === "naihati-boromaa-kali-puja";
   const pinGroup = new THREE.Group();
   pinGroup.userData = { pandal };
 
   const [x, z] = geoTo3D(pandal.lat, pandal.lng);
-  pinGroup.position.set(x, 0.05, z);
+  pinGroup.position.set(x, 0.06, z);
 
   // 1. Golden base ring on the terrain
-  const baseRadius = isDivine ? 0.65 : 0.38;
+  const baseRadius = isBoroMaa ? 0.7 : 0.4;
   const baseGeo = new THREE.RingGeometry(0.08, baseRadius, 20);
   const baseMat = new THREE.MeshBasicMaterial({
-    color: isDivine ? 0xf5c76a : 0xffe6a8,
+    color: isBoroMaa ? 0xf5c76a : 0xffe6a8,
     side: THREE.DoubleSide,
     transparent: true,
     opacity: 0.85,
@@ -131,7 +132,7 @@ function createPandalPin(
   pinGroup.add(baseMesh);
 
   // 2. Slender golden spire stem
-  const stemHeight = isDivine ? 1.7 : 1.25;
+  const stemHeight = isBoroMaa ? 1.8 : 1.35;
   const stemGeo = new THREE.CylinderGeometry(0.04, 0.05, stemHeight, 8);
   const stemMat = new THREE.MeshStandardMaterial({
     color: 0xf5c76a,
@@ -145,16 +146,18 @@ function createPandalPin(
 
   // 3. Billboarded Medallion Head (always faces the user's camera)
   const billboard = new THREE.Group();
-  billboard.position.y = stemHeight + (isDivine ? 0.55 : 0.4);
+  billboard.position.y = stemHeight + (isBoroMaa ? 0.6 : 0.42);
   pinGroup.add(billboard);
   pinGroup.userData.billboard = billboard;
 
-  const headRadius = isDivine ? 0.65 : 0.45;
+  const headRadius = isBoroMaa ? 0.68 : 0.48;
 
-  // Front face: circular portrait of Maa Kali
+  // Front face:
+  // - Boro Maa Photo ONLY for Boro Maa
+  // - Fierce Kali Golden Mandala Emblem for all other Kali Pandals
   const frontGeo = new THREE.CircleGeometry(headRadius, 32);
   const frontMat = new THREE.MeshBasicMaterial({
-    map: isDivine ? boroMaaTexture : kaliTexture,
+    map: isBoroMaa ? boroMaaTexture : kaliTexture,
     side: THREE.FrontSide,
   });
   const frontMesh = new THREE.Mesh(frontGeo, frontMat);
@@ -163,8 +166,8 @@ function createPandalPin(
   // Outer golden bezel ring
   const ringGeo = new THREE.RingGeometry(headRadius * 0.96, headRadius * 1.15, 32);
   const ringMat = new THREE.MeshStandardMaterial({
-    color: isDivine ? 0xffe6a8 : 0xf5c76a,
-    emissive: isDivine ? 0xd97706 : 0x78350f,
+    color: isBoroMaa ? 0xffe6a8 : 0xf5c76a,
+    emissive: isBoroMaa ? 0xd97706 : 0x78350f,
     emissiveIntensity: 0.45,
     metalness: 0.9,
     roughness: 0.2,
@@ -184,7 +187,7 @@ function createPandalPin(
   const backMesh = new THREE.Mesh(backGeo, backMat);
   billboard.add(backMesh);
 
-  if (isDivine) {
+  if (isBoroMaa) {
     // 4. DIVINE BORO MAA SPECIAL FEATURES:
     // Ornate Golden Mukut (Crown)
     const crownGroup = new THREE.Group();
@@ -192,7 +195,7 @@ function createPandalPin(
 
     // Center tall crown pinnacle
     const centerPinnacle = new THREE.Mesh(
-      new THREE.ConeGeometry(0.18, 0.72, 8),
+      new THREE.ConeGeometry(0.18, 0.75, 8),
       new THREE.MeshStandardMaterial({
         color: 0xffd700,
         emissive: 0xf59e0b,
@@ -200,23 +203,23 @@ function createPandalPin(
         metalness: 0.9,
       })
     );
-    centerPinnacle.position.y = 0.36;
+    centerPinnacle.position.y = 0.375;
     crownGroup.add(centerPinnacle);
 
     // Left crown pinnacle
     const leftPinnacle = new THREE.Mesh(
-      new THREE.ConeGeometry(0.12, 0.46, 8),
+      new THREE.ConeGeometry(0.12, 0.48, 8),
       new THREE.MeshStandardMaterial({ color: 0xffe6a8, metalness: 0.8 })
     );
-    leftPinnacle.position.set(-0.25, 0.23, 0);
+    leftPinnacle.position.set(-0.25, 0.24, 0);
     crownGroup.add(leftPinnacle);
 
     // Right crown pinnacle
     const rightPinnacle = new THREE.Mesh(
-      new THREE.ConeGeometry(0.12, 0.46, 8),
+      new THREE.ConeGeometry(0.12, 0.48, 8),
       new THREE.MeshStandardMaterial({ color: 0xffe6a8, metalness: 0.8 })
     );
-    rightPinnacle.position.set(0.25, 0.23, 0);
+    rightPinnacle.position.set(0.25, 0.24, 0);
     crownGroup.add(rightPinnacle);
 
     // Ruby gem crest
@@ -238,7 +241,7 @@ function createPandalPin(
     billboard.add(halo);
 
     // Heavenly warm point light
-    const spot = new THREE.PointLight(0xf5c76a, 3.2, 7);
+    const spot = new THREE.PointLight(0xf5c76a, 3.5, 8);
     spot.position.set(0, 0.5, 0.4);
     billboard.add(spot);
   }
@@ -346,12 +349,12 @@ export default function Naihati3DMapHero({ customMarkers = [] }: Naihati3DMapHer
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // 2. Camera: Isometric elevated view facing North-East
+    // 2. Camera: Isometric elevation
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 1000);
     camera.position.set(0, 24, 26);
     cameraRef.current = camera;
 
-    // 3. Renderer with high pixel ratio and sharp antialiasing
+    // 3. Renderer with soft PCF shadow maps
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -375,19 +378,26 @@ export default function Naihati3DMapHero({ customMarkers = [] }: Naihati3DMapHer
     controls.target.set(0, 0, 0);
     controlsRef.current = controls;
 
-    // 5. Studio Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.6);
+    // 5. Studio Lighting with Directional Sun casting 3D shadows across buildings
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfffdf5, 1.8);
-    sunLight.position.set(15, 30, 20);
+    const sunLight = new THREE.DirectionalLight(0xfffdf0, 2.2);
+    sunLight.position.set(16, 28, 16);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 1024;
-    sunLight.shadow.mapSize.height = 1024;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.bias = -0.0004;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 100;
+    sunLight.shadow.camera.left = -16;
+    sunLight.shadow.camera.right = 16;
+    sunLight.shadow.camera.top = 18;
+    sunLight.shadow.camera.bottom = -18;
     scene.add(sunLight);
 
     // River fill light
-    const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.7);
+    const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.6);
     fillLight.position.set(-20, 15, -10);
     scene.add(fillLight);
 
@@ -403,7 +413,6 @@ export default function Naihati3DMapHero({ customMarkers = [] }: Naihati3DMapHer
 
     const sideTexture = createSideStrataTexture();
 
-    // Box Materials: [right, left, top, bottom, front, back]
     const sideMat = new THREE.MeshStandardMaterial({
       map: sideTexture,
       roughness: 0.9,
@@ -426,13 +435,13 @@ export default function Naihati3DMapHero({ customMarkers = [] }: Naihati3DMapHer
     slabMesh.receiveShadow = true;
     scene.add(slabMesh);
 
-    // Thin golden decorative frame line around the top border
+    // Golden decorative frame line around the top border
     const frameGeo = new THREE.EdgesGeometry(slabGeo);
     const frameMat = new THREE.LineBasicMaterial({
       color: 0xf5c76a,
       linewidth: 1,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.6,
     });
     const frameLine = new THREE.LineSegments(frameGeo, frameMat);
     frameLine.position.y = -BLOCK_THICKNESS / 2;
@@ -447,11 +456,38 @@ export default function Naihati3DMapHero({ customMarkers = [] }: Naihati3DMapHer
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // 7. Load Textures for Maa Kali & Boro Maa Pins
-    const kaliTexture = textureLoader.load("/kali-pin.jpg");
+    // 7. REAL 3D EXTRUDED CITY BUILDINGS (maps3d.io architecture)
+    // 1,153 real 3D building blocks with varied heights, casting physical shadows
+    const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
+    const buildingMat = new THREE.MeshStandardMaterial({
+      color: 0xdfcb9f, // warm sandstone / terracotta architectural color matching maps3d.io
+      roughness: 0.65,
+      metalness: 0.08,
+    });
+    const count = (buildingsData as any[]).length;
+    const instancedBuildings = new THREE.InstancedMesh(buildingGeo, buildingMat, count);
+    const dummy = new THREE.Object3D();
+
+    for (let i = 0; i < count; i++) {
+      const [bx, bz, bw, bd, bh, brot] = (buildingsData as any[])[i];
+      dummy.position.set(bx, bh / 2 + 0.01, bz);
+      dummy.rotation.set(0, brot || 0, 0);
+      dummy.scale.set(bw, bh, bd);
+      dummy.updateMatrix();
+      instancedBuildings.setMatrixAt(i, dummy.matrix);
+    }
+    instancedBuildings.instanceMatrix.needsUpdate = true;
+    instancedBuildings.castShadow = true;
+    instancedBuildings.receiveShadow = true;
+    scene.add(instancedBuildings);
+
+    // 8. Load Textures for Pins:
+    // - Fierce Kali Golden Mandala Emblem for all Kali pandals
+    // - Sacred Boro Maa Emblem ONLY for Boro Maa Temple
+    const kaliTexture = textureLoader.load("/kali-mandala.webp");
     const boroMaaTexture = textureLoader.load("/boro-maa-emblem.png");
 
-    // 8. Generate 3D Pandal Pins across all 28 locations
+    // 9. Generate 3D Pandal Pins across all 28 locations
     const pinMeshes = new Map<string, THREE.Group>();
     for (const pandal of ALL_PANDALS) {
       const pinGroup = createPandalPin(pandal, kaliTexture, boroMaaTexture);
@@ -460,13 +496,13 @@ export default function Naihati3DMapHero({ customMarkers = [] }: Naihati3DMapHer
     }
     pinMeshesRef.current = pinMeshes;
 
-    // 9. Add User Location Beacon
+    // 10. Add User Location Beacon
     const userBeacon = createUserBeacon();
     userBeacon.visible = false;
     scene.add(userBeacon);
     userBeaconRef.current = userBeacon;
 
-    // 10. Pointer Tap / Click Raycasting for Pandals
+    // 11. Pointer Tap / Click Raycasting for Pandals
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -500,7 +536,7 @@ export default function Naihati3DMapHero({ customMarkers = [] }: Naihati3DMapHer
     };
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
 
-    // 11. Animation Loop: Billboards face camera + Halo rotation + Compass angle
+    // 12. Animation Loop: Billboards face camera + Halo rotation + Compass angle
     let animId = 0;
     const clock = new THREE.Clock();
 
@@ -545,7 +581,7 @@ export default function Naihati3DMapHero({ customMarkers = [] }: Naihati3DMapHer
     };
     animate();
 
-    // 12. Responsive Resize
+    // 13. Responsive Resize
     const onResize = () => {
       if (!container || !renderer || !camera) return;
       const w = container.clientWidth;
@@ -626,7 +662,7 @@ export default function Naihati3DMapHero({ customMarkers = [] }: Naihati3DMapHer
             <span className="relative inline-flex size-2.5 rounded-full bg-gold" />
           </span>
           <span className="text-[12.5px] font-bold tracking-wide text-gold">
-            {lang === "bn" ? "নৈহাটি সমগ্র পরিক্রমা ম্যাপ" : "Naihati 3D Parikrama Map"}
+            {lang === "bn" ? "নৈহাটি ৩ডি পরিক্রমা ডায়োরামা" : "Naihati 3D Parikrama Diorama"}
           </span>
         </div>
 

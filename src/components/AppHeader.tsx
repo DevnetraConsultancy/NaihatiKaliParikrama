@@ -14,38 +14,6 @@ const NAV = [
 ];
 
 /**
- * Single, delicate festive spinning chakra art (inspired by durgapujakolkata.in/guide)
- */
-export function HeaderSpinningChakra({ size = 18 }: { size?: number }) {
-  return (
-    <span
-      className="relative inline-grid shrink-0 place-items-center select-none pointer-events-none"
-      style={{ width: size, height: size }}
-      aria-hidden="true"
-      title="Festive Chakra"
-    >
-      <svg
-        viewBox="0 0 100 100"
-        className="size-full animate-spin-slow overflow-visible"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <circle cx="50" cy="50" r="46" stroke="#f5c76a" strokeWidth="2.5" strokeDasharray="6 4" opacity="0.8" />
-        <circle cx="50" cy="50" r="32" stroke="#ffe6a8" strokeWidth="1.8" opacity="0.6" />
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
-          <g key={deg} transform={`rotate(${deg} 50 50)`}>
-            <line x1="50" y1="14" x2="50" y2="46" stroke="#f5c76a" strokeWidth="2" strokeLinecap="round" />
-            <circle cx="50" cy="10" r="2.8" fill="#f5c76a" />
-          </g>
-        ))}
-        <circle cx="50" cy="50" r="10" fill="#f5c76a" />
-        <circle cx="50" cy="50" r="4" fill="#14071e" />
-      </svg>
-    </span>
-  );
-}
-
-/**
  * Auspicious Header Diya with flickering flame
  */
 export function HeaderDiya({ size = 22 }: { size?: number }) {
@@ -107,8 +75,30 @@ export default function AppHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="safe-top header-alpona sticky top-0 z-[700] border-b border-gold/20 shadow-lg shadow-black/50 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between gap-2 px-3">
+    <header className="safe-top header-alpona sticky top-0 z-[700] border-b border-gold/20 shadow-lg shadow-black/50 backdrop-blur-xl relative overflow-hidden">
+      {/* Large blurred semi-transparent rotating corner Alpona (only 1/4 visible in top-right corner) */}
+      <div
+        className="pointer-events-none absolute -top-16 -right-16 size-48 sm:size-56 overflow-hidden select-none z-0"
+        aria-hidden="true"
+      >
+        <div className="size-full opacity-25 filter blur-[0.4px] animate-spin-slow origin-center">
+          <svg viewBox="0 0 100 100" className="size-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="47" stroke="#f5c76a" strokeWidth="2" strokeDasharray="5 4" opacity="0.85" />
+            <circle cx="50" cy="50" r="34" stroke="#ffe6a8" strokeWidth="1.6" opacity="0.75" />
+            <circle cx="50" cy="50" r="22" stroke="#f5c76a" strokeWidth="1.2" strokeDasharray="3 3" opacity="0.8" />
+            {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => (
+              <g key={deg} transform={`rotate(${deg} 50 50)`}>
+                <line x1="50" y1="6" x2="50" y2="46" stroke="#f5c76a" strokeWidth="1.6" strokeLinecap="round" />
+                <circle cx="50" cy="6" r="2.2" fill="#f5c76a" />
+              </g>
+            ))}
+            <circle cx="50" cy="50" r="10" fill="#f5c76a" opacity="0.85" />
+            <circle cx="50" cy="50" r="4" fill="#14071e" />
+          </svg>
+        </div>
+      </div>
+
+      <div className="relative z-10 mx-auto flex h-14 w-full max-w-2xl items-center justify-between gap-2 px-3">
         {/* Brand Group: Clean Logo + Non-overlapping Title */}
         <Link href="/" className="group flex min-w-0 items-center gap-2.5">
           <div className="relative size-8.5 shrink-0 overflow-hidden rounded-full border border-gold/70 shadow-[0_0_10px_rgba(245,199,106,0.4)] transition-transform group-hover:scale-105 bg-ink">
@@ -149,11 +139,8 @@ export default function AppHeader() {
           ))}
         </nav>
 
-        {/* Right Section: Single Subtle Spinning Chakra + Header Diya + Language Toggle */}
+        {/* Right Section: Header Diya + Language Toggle */}
         <div className="flex shrink-0 items-center gap-2.5">
-          {/* Subtle spinning festive chakra (single instance in header) */}
-          <HeaderSpinningChakra size={18} />
-
           {/* Auspicious Diya */}
           <HeaderDiya size={22} />
 

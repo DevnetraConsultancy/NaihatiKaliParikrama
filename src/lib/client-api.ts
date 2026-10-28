@@ -71,12 +71,27 @@ export async function fetchRoute(
   return payload.route ?? null;
 }
 
+const nearbyClientCache = new Map<
+  string,
+  { data: { facilities: Facility[]; source: string }; timestamp: number }
+>();
+
 export async function fetchNearby(
   lat: number,
   lng: number,
   kinds: string[],
   radius = 1800,
 ): Promise<{ facilities: Facility[]; source: string }> {
+  const roundedLat = lat.toFixed(3);
+  const roundedLng = lng.toFixed(3);
+  const sortedKinds = [...kinds].sort().join(",");
+  const cacheKey = `${roundedLat}:${roundedLng}:${radius}:${sortedKinds}`;
+
+  const cached = nearbyClientCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < 120_000) {
+    return cached.data;
+  }
+
   const query = new URLSearchParams({
     lat: lat.toFixed(5),
     lng: lng.toFixed(5),
@@ -86,5 +101,7 @@ export async function fetchNearby(
   const response = await fetch(`/api/nearby?${query.toString()}`, { cache: "no-store" });
   if (!response.ok) return { facilities: [], source: "unavailable" };
   const payload = (await response.json()) as { facilities?: Facility[]; source?: string };
-  return { facilities: payload.facilities ?? [], source: payload.source ?? "unknown" };
+  const result = { facilities: payload.facilities ?? [], source: payload.source ?? "unknown" };
+  nearbyClientCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 }

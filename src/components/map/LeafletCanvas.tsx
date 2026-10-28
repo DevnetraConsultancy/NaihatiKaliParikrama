@@ -52,8 +52,8 @@ function facilitySvg(kind: string): string {
   }
 }
 
-function isDivinePandal(slug: string, featured?: boolean): boolean {
-  return slug === "naihati-boromaa-kali-puja" || slug.includes("boromaa");
+function isDivinePandal(slug: string): boolean {
+  return slug === "naihati-boromaa-kali-puja";
 }
 
 function pinIcon(category: PandalCategory, active: boolean, isDivine = false): L.DivIcon {
@@ -92,7 +92,7 @@ function pinIcon(category: PandalCategory, active: boolean, isDivine = false): L
     html: `<span class="nkp-pin nkp-pin--${category}${active ? " nkp-pin--active" : ""}">
         ${active ? '<span class="nkp-pin__pulse"></span>' : ""}
         <span class="nkp-pin__head">
-          <img src="/kali-pin.jpg" alt="" class="nkp-pin__img" loading="eager" />
+          <img src="/kali-mandala.webp" alt="Maa Kali" class="nkp-pin__img" loading="eager" />
         </span>
         <span class="nkp-pin__tip"></span>
       </span>`,
@@ -152,9 +152,8 @@ export interface LeafletCanvasProps {
 
 /**
  * Interactive Naihati Map Canvas:
- * - Divine Theme for Naihati Boro Maa (Golden Mukut Crown, radiating aura, sacred emblem)
- * - Renders all 28 pandals with zero-lag smooth rendering
- * - Renders all emergency services & utility pins
+ * - Divine Theme for Naihati Boro Maa (Golden Mukut Crown, radiating aura, sacred Boro Maa emblem)
+ * - Fierce Kali Golden Mandala Emblem for all other 27 Kali Puja pandal locations
  * - Smooth Android navigation without tile flickering or coordinate jitter
  */
 export default function LeafletCanvas({
@@ -222,8 +221,6 @@ export default function LeafletCanvas({
     });
 
     // High performance tile configuration:
-    // keepBuffer: 8 ensures smooth panning without grey tile flashes on Android
-    // updateWhenIdle: false ensures continuous progressive loading
     L.tileLayer(TILE_URL, {
       attribution: TILE_ATTRIBUTION,
       maxZoom: 19,
@@ -246,7 +243,7 @@ export default function LeafletCanvas({
     mapRef.current = map;
     readyRef.current?.(map);
 
-    // Ensure Leaflet recalculates dimensions once layout settles
+    // Recalculate dimensions once layout settles
     const t1 = setTimeout(() => map.invalidateSize(), 100);
     const t2 = setTimeout(() => map.invalidateSize(), 350);
 
@@ -293,7 +290,7 @@ export default function LeafletCanvas({
     pandalMarkersRef.current.clear();
 
     for (const pandal of pandals) {
-      const isDivine = isDivinePandal(pandal.slug, pandal.featured);
+      const isDivine = isDivinePandal(pandal.slug);
       const isActive = pandal.slug === activeSlug;
       const marker = L.marker([pandal.lat, pandal.lng], {
         icon: pinIcon(pandal.category, isActive, isDivine),
@@ -320,7 +317,7 @@ export default function LeafletCanvas({
     for (const pandal of pandals) {
       const marker = pandalMarkersRef.current.get(pandal.slug);
       if (!marker) continue;
-      const isDivine = isDivinePandal(pandal.slug, pandal.featured);
+      const isDivine = isDivinePandal(pandal.slug);
       const isActive = pandal.slug === activeSlug;
       marker.setIcon(pinIcon(pandal.category, isActive, isDivine));
       if (isActive) {
@@ -390,7 +387,6 @@ export default function LeafletCanvas({
   }, [activeFacilityKey, fitRoute]);
 
   // ------------------------------------------------------------------ route
-  // Smoothly updates route polylines via setLatLngs() without clearLayers() paint thrashing
   useEffect(() => {
     const map = mapRef.current;
     const layer = routeLayerRef.current;
@@ -476,7 +472,6 @@ export default function LeafletCanvas({
   }, [route, fitRoute]);
 
   // ----------------------------------------------------------- live position
-  // Direct coordinate updates without destroying/recreating DOM markers
   useEffect(() => {
     const map = mapRef.current;
     const userLayer = userLayerRef.current;

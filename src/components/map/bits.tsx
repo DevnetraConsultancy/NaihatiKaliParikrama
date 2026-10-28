@@ -206,47 +206,57 @@ export function FacilityRow({
   facility,
   lang,
   onRoute,
+  routeInfo,
 }: {
   facility: Facility;
   lang: Lang;
   onRoute?: () => void;
+  routeInfo?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
-      <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/8">
-        <FacilityIcon kind={facility.kind} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium text-white/90">{facility.name}</p>
-        <p className="truncate text-[11px] text-white/50">
-          {facilityLabel(String(facility.kind), lang)}
-          {typeof facility.distance === "number"
-            ? ` · ${formatDistance(facility.distance, lang)}`
-            : ""}
-          {facility.source === "seed" ? (lang === "bn" ? " · আনুমানিক" : " · approx") : ""}
-        </p>
+    <div className="flex flex-col gap-1 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
+      <div className="flex items-center gap-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/8">
+          <FacilityIcon kind={facility.kind} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-medium text-white/90">{facility.name}</p>
+          <p className="truncate text-[11px] text-white/50">
+            {facilityLabel(String(facility.kind), lang)}
+            {typeof facility.distance === "number"
+              ? ` · ${formatDistance(facility.distance, lang)}`
+              : ""}
+            {facility.source === "seed" ? (lang === "bn" ? " · আনুমানিক" : " · approx") : ""}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {facility.phone ? (
+            <a
+              href={`tel:${facility.phone}`}
+              className="liquid-press grid size-8 place-items-center rounded-full border border-white/15 bg-white/5 text-gold hover:border-gold/50"
+              aria-label="Call"
+            >
+              <PhoneIcon size={14} className="stroke-current" />
+            </a>
+          ) : null}
+          {onRoute ? (
+            <button
+              type="button"
+              onClick={onRoute}
+              className="liquid-press grid size-8 place-items-center rounded-full border border-white/15 bg-white/5 text-white hover:border-gold hover:text-gold"
+              aria-label={lang === "bn" ? "পথ" : "Route"}
+            >
+              <NavigationIcon size={13} className="stroke-current" />
+            </button>
+          ) : null}
+        </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
-        {facility.phone ? (
-          <a
-            href={`tel:${facility.phone}`}
-            className="liquid-press grid size-8 place-items-center rounded-full border border-white/15 bg-white/5 text-gold hover:border-gold/50"
-            aria-label="Call"
-          >
-            <PhoneIcon size={14} className="stroke-current" />
-          </a>
-        ) : null}
-        {onRoute ? (
-          <button
-            type="button"
-            onClick={onRoute}
-            className="liquid-press grid size-8 place-items-center rounded-full border border-white/15 bg-white/5 text-white hover:border-gold hover:text-gold"
-            aria-label={lang === "bn" ? "পথ" : "Route"}
-          >
-            <NavigationIcon size={13} className="stroke-current" />
-          </button>
-        ) : null}
-      </div>
+      {routeInfo ? (
+        <div className="mt-1 flex items-center gap-1.5 rounded-lg bg-gold/10 px-2 py-1 text-[11px] text-gold">
+          <WalkIcon size={12} className="stroke-current shrink-0" />
+          <span>{routeInfo}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
