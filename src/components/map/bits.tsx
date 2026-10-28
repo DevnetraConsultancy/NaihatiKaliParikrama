@@ -31,12 +31,14 @@ export function Chip({
   onClick,
   children,
   color,
+  textColor,
   title,
 }: {
   active?: boolean;
   onClick?: () => void;
   children: React.ReactNode;
   color?: string;
+  textColor?: string;
   title?: string;
 }) {
   return (
@@ -44,12 +46,19 @@ export function Chip({
       type="button"
       title={title}
       onClick={onClick}
-      className={`liquid-press flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium whitespace-nowrap transition-colors ${
+      className={`liquid-press flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] whitespace-nowrap shadow-sm transition-all duration-200 ${
         active
-          ? "border-transparent text-ink font-semibold"
-          : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
+          ? "border-transparent font-semibold shadow-md"
+          : "border-white/15 bg-[#0e071c]/70 text-white/80 backdrop-blur-md hover:bg-white/10 hover:border-white/25 hover:text-white"
       }`}
-      style={active ? { backgroundColor: color ?? "var(--color-gold)" } : undefined}
+      style={
+        active
+          ? {
+              backgroundColor: color ?? "var(--color-gold)",
+              color: textColor ?? (color ? "#ffffff" : "var(--color-ink)"),
+            }
+          : undefined
+      }
     >
       {children}
     </button>

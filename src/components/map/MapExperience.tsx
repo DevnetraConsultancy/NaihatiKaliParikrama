@@ -100,16 +100,15 @@ function FacilityChipIcon({ kind, size = 14 }: { kind: string; size?: number }) 
   }
 }
 
-const FACILITY_CHIPS: { kind: string }[] = [
-  { kind: "hospital" },
-  { kind: "police" },
-  { kind: "toilets" },
-  { kind: "pharmacy" },
-  { kind: "railway" },
-  { kind: "help" },
-  { kind: "parking" },
-  { kind: "atm" },
-  { kind: "restaurant" },
+const FACILITY_CHIPS: { kind: string; color: string }[] = [
+  { kind: "hospital", color: "#ef4444" },
+  { kind: "police", color: "#0284c7" },
+  { kind: "toilets", color: "#0d9488" },
+  { kind: "pharmacy", color: "#10b981" },
+  { kind: "railway", color: "#6366f1" },
+  { kind: "parking", color: "#3b82f6" },
+  { kind: "atm", color: "#8b5cf6" },
+  { kind: "restaurant", color: "#f97316" },
 ];
 
 const DEFAULT_FACILITY_KINDS = [
@@ -118,7 +117,6 @@ const DEFAULT_FACILITY_KINDS = [
   "toilets",
   "pharmacy",
   "railway",
-  "help",
   "parking",
 ];
 
@@ -530,7 +528,7 @@ export default function MapExperience() {
           TOP BAR: EITHER GOOGLE MAPS LIVE NAVIGATION BANNER OR SEARCH/FILTERS
          =================================================================== */}
       {isNavigating && route ? (
-        <div className="pointer-events-none absolute inset-x-0 top-2 z-[600] px-2.5 sm:px-4">
+        <div className="pointer-events-none absolute inset-x-0 top-3.5 sm:top-4.5 z-[600] px-2.5 sm:px-4">
           <div className="pointer-events-auto mx-auto max-w-xl overflow-hidden rounded-3xl border border-emerald-400/35 bg-[#091e1a]/95 shadow-2xl backdrop-blur-xl">
             <div className="flex items-center gap-3 px-3.5 py-3">
               <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-500 text-ink shadow-md">
@@ -623,11 +621,11 @@ export default function MapExperience() {
           </div>
         </div>
       ) : (
-        <div className="pointer-events-none absolute inset-x-0 top-2 z-[600] flex flex-col gap-1.5 px-2.5 sm:px-4">
+        <div className="pointer-events-none absolute inset-x-0 top-3.5 sm:top-4.5 z-[600] flex flex-col gap-2 px-2.5 sm:px-4">
           {/* Search & Day/Night Toggle */}
           <div className="pointer-events-auto mx-auto flex w-full max-w-2xl items-center gap-2">
-            <div className="glass-strong flex h-10 flex-1 items-center gap-2 rounded-2xl px-3 shadow-lg">
-              <SearchIcon size={15} className="shrink-0 text-gold" />
+            <div className="flex h-11 sm:h-12 flex-1 items-center gap-2.5 rounded-2xl border border-white/15 bg-[#0e071c]/80 px-3.5 shadow-[0_8px_24px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all focus-within:border-gold/50 focus-within:ring-2 focus-within:ring-gold/20">
+              <SearchIcon size={16} className="shrink-0 text-gold" />
               <input
                 value={query}
                 onChange={(event) => {
@@ -635,7 +633,7 @@ export default function MapExperience() {
                   if (event.target.value.length > 0) setShowListDrawer(true);
                 }}
                 placeholder={t("searchPlaceholder")}
-                className="h-full w-full bg-transparent text-[13px] text-white placeholder:text-white/45 focus:outline-none"
+                className="h-full w-full bg-transparent text-[13.5px] text-white placeholder:text-white/45 focus:outline-none"
                 inputMode="search"
               />
               {query.length > 0 ? (
@@ -661,10 +659,10 @@ export default function MapExperience() {
                   setShowListDrawer(true);
                 }
               }}
-              className="glass-strong liquid-press flex h-10 shrink-0 items-center gap-1.5 rounded-2xl px-3 text-[12px] font-semibold text-gold shadow-lg"
+              className="liquid-press flex h-11 sm:h-12 shrink-0 items-center gap-1.5 rounded-2xl border border-white/15 bg-[#0e071c]/80 px-3.5 text-[12.5px] font-semibold text-gold shadow-xl backdrop-blur-xl hover:border-gold/40 hover:bg-white/10"
               title={showListDrawer ? (lang === "bn" ? "ম্যাপ দেখুন" : "View Map") : (lang === "bn" ? "তালিকা দেখুন" : "View List")}
             >
-              {showListDrawer ? <MapIcon size={15} /> : <ListIcon size={15} />}
+              {showListDrawer ? <MapIcon size={16} /> : <ListIcon size={16} />}
               <span>{showListDrawer ? (lang === "bn" ? "ম্যাপ" : "Map") : (lang === "bn" ? "তালিকা" : "List")}</span>
             </button>
 
@@ -672,9 +670,9 @@ export default function MapExperience() {
               type="button"
               onClick={() => setNightMode((value) => !value)}
               title={t("nightMap")}
-              className="glass-strong liquid-press grid size-10 shrink-0 place-items-center rounded-2xl text-gold shadow-lg"
+              className="liquid-press grid size-11 sm:size-12 shrink-0 place-items-center rounded-2xl border border-white/15 bg-[#0e071c]/80 text-gold shadow-xl backdrop-blur-xl hover:border-gold/40 hover:bg-white/10"
             >
-              {nightMode ? <SunIcon size={16} /> : <MoonIcon size={16} />}
+              {nightMode ? <SunIcon size={17} /> : <MoonIcon size={17} />}
             </button>
           </div>
 
@@ -692,6 +690,7 @@ export default function MapExperience() {
                       ? "var(--color-large)"
                       : "var(--color-small)"
                 }
+                textColor={category === "large" ? "#ffffff" : "#07060e"}
               >
                 <TempleIcon size={12} />
                 <span>{t(category)}</span>
@@ -703,6 +702,8 @@ export default function MapExperience() {
                 key={chip.kind}
                 active={facilityKinds.includes(chip.kind)}
                 onClick={() => toggleFacility(chip.kind)}
+                color={chip.color}
+                textColor="#ffffff"
                 title={t(chip.kind)}
               >
                 <FacilityChipIcon kind={chip.kind} size={13} />
@@ -712,31 +713,31 @@ export default function MapExperience() {
           </div>
 
           {/* Live GPS Status Pill */}
-          <div className="pointer-events-auto mx-auto flex w-full max-w-2xl items-center justify-between gap-2">
-            <div className="glass-strong inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] text-white/85 shadow-md">
+          <div className="pointer-events-auto mx-auto flex w-full max-w-2xl items-center justify-start">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-[#0b0514]/85 px-2.5 py-0.5 text-[10.5px] font-medium text-white/85 shadow-md backdrop-blur-md">
               <span
-                className={`size-2 rounded-full ${
+                className={`size-1.5 rounded-full ${
                   geo.status === "granted"
-                    ? "animate-pulse bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                    ? "animate-pulse bg-emerald-400 shadow-[0_0_6px_#34d399]"
                     : "bg-sky-400"
                 }`}
               />
-              <span>
+              <span className="truncate max-w-[240px] sm:max-w-none">
                 {manualPosition
                   ? lang === "bn"
-                    ? "আপনার নির্বাচিত অবস্থান সক্রিয়"
-                    : "Custom map spot active"
+                    ? "নির্বাচিত অবস্থান সক্রিয়"
+                    : "Custom spot active"
                   : geo.status === "granted" && gpsInNaihati
                     ? lang === "bn"
                       ? "লাইভ জিপিএস সক্রিয় · আপনি ম্যাপে আছেন"
                       : "Live GPS Active · Showing you on map"
                     : geo.status === "granted" && !gpsInNaihati
                       ? lang === "bn"
-                        ? "নৈহাটি ম্যাপ · আপনার অবস্থান স্টেশন মোডে"
-                        : "Viewing Naihati · Origin at Naihati Station"
+                        ? "নৈহাটি স্টেশন মোড"
+                        : "Naihati Station Mode"
                       : lang === "bn"
-                        ? "নীল বিন্দু আপনার অবস্থান · যেকোনো পিনে ক্লিক করুন"
-                        : "Blue dot is you · Tap any pin for live route"}
+                        ? "যেকোনো পিনে ক্লিক করে রুট দেখুন"
+                        : "Tap any pin for live route"}
               </span>
               {geo.status !== "granted" ? (
                 <button
@@ -745,16 +746,16 @@ export default function MapExperience() {
                     geo.request();
                     showToast(t("locating"));
                   }}
-                  className="ml-1 font-semibold text-gold underline"
+                  className="ml-1 font-semibold text-gold hover:underline"
                 >
-                  {lang === "bn" ? "জিপিএস চালু করুন" : "Enable GPS"}
+                  {lang === "bn" ? "জিপিএস অন" : "GPS"}
                 </button>
               ) : null}
               {manualPosition ? (
                 <button
                   type="button"
                   onClick={() => setManualPosition(null)}
-                  className="ml-1 font-semibold text-gold underline"
+                  className="ml-1 font-semibold text-gold hover:underline"
                 >
                   {lang === "bn" ? "রিসেট" : "Reset"}
                 </button>
